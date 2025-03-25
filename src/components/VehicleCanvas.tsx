@@ -1,10 +1,14 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Brush, Eraser, Undo2, RotateCw, Save } from 'lucide-react';
+import { toast } from '@/lib/toast';
+import { Checkbox } from '@/components/ui/checkbox';
 
 type DrawingMode = 'brush' | 'eraser';
+type DamageType = 'dent' | 'scratch';
 
 interface VehicleCanvasProps {
   vehicleType?: 'sedan' | 'suv' | 'hatchback' | 'truck';
@@ -22,10 +26,15 @@ export function VehicleCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawingMode, setDrawingMode] = useState<DrawingMode>('brush');
+  const [damageType, setDamageType] = useState<DamageType>('dent');
   const [history, setHistory] = useState<string[]>([]);
   const [view, setView] = useState<'front' | 'back' | 'left' | 'right' | 'top'>('top');
   
-  const brushColor = 'rgba(255, 0, 0, 0.7)'; // Red for damage marking
+  const damageColors = {
+    dent: 'rgba(255, 0, 0, 0.7)', // Red for dents
+    scratch: 'rgba(0, 0, 255, 0.7)' // Blue for scratches
+  };
+
   const brushSize = 8;
   const eraserSize = 15;
 
@@ -145,7 +154,7 @@ export function VehicleCanvas({
     ctx.moveTo(x, y);
     
     if (drawingMode === 'brush') {
-      ctx.strokeStyle = brushColor;
+      ctx.strokeStyle = damageColors[damageType];
       ctx.lineWidth = brushSize;
     } else {
       ctx.strokeStyle = '#fff';
@@ -240,6 +249,7 @@ export function VehicleCanvas({
     
     // Reset history
     saveToHistory();
+    toast.info("Canvas has been reset");
   };
   
   const handleSave = () => {
@@ -250,6 +260,7 @@ export function VehicleCanvas({
     
     const imageData = canvas.toDataURL('image/png');
     onSave(imageData);
+    toast.success("Damage marking saved successfully");
   };
 
   return (
@@ -278,7 +289,7 @@ export function VehicleCanvas({
       </CardContent>
       {!viewOnly && (
         <CardFooter className="flex flex-wrap gap-2 justify-between border-t p-4">
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <ToggleGroup type="single" value={drawingMode} onValueChange={(value) => value && setDrawingMode(value as DrawingMode)}>
               <ToggleGroupItem value="brush" className="gap-1" aria-label="Toggle brush">
                 <Brush className="h-4 w-4" />
@@ -289,6 +300,39 @@ export function VehicleCanvas({
                 <span className="sr-only sm:not-sr-only sm:text-xs">Eraser</span>
               </ToggleGroupItem>
             </ToggleGroup>
+            
+            {drawingMode === 'brush' && (
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="dent" 
+                    checked={damageType === 'dent'} 
+                    onCheckedChange={() => setDamageType('dent')}
+                  />
+                  <label
+                    htmlFor="dent"
+                    className="flex items-center text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    <span className="w-3 h-3 inline-block bg-red-500 rounded-full mr-1"></span>
+                    Dent
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="scratch" 
+                    checked={damageType === 'scratch'} 
+                    onCheckedChange={() => setDamageType('scratch')}
+                  />
+                  <label
+                    htmlFor="scratch"
+                    className="flex items-center text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    <span className="w-3 h-3 inline-block bg-blue-500 rounded-full mr-1"></span>
+                    Scratch
+                  </label>
+                </div>
+              </div>
+            )}
             
             <ToggleGroup type="single" value={view} onValueChange={(value) => value && setView(value as any)}>
               <ToggleGroupItem value="top" aria-label="Top view">Top</ToggleGroupItem>
