@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Navbar } from './Navbar';
 import { SidebarProvider, Sidebar, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarTrigger, SidebarGroup, SidebarGroupContent } from '@/components/ui/sidebar';
-import { Car, Users, Clipboard, User, Package, HomeIcon, LayoutDashboard } from 'lucide-react';
+import { Car, Users, Clipboard, User, Package, IndianRupee, LayoutDashboard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLocation, Link } from 'react-router-dom';
 
@@ -21,6 +21,7 @@ export function Layout({ children }: LayoutProps) {
     { icon: User, label: 'Staff', path: '/staff' },
     { icon: Clipboard, label: 'Job Cards', path: '/job-cards' },
     { icon: Package, label: 'Inventory', path: '/inventory' },
+    { icon: IndianRupee, label: 'Billing', path: '/billing' },
   ];
 
   const isActive = (path: string) => {

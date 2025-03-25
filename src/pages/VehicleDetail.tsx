@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { useParams, Link } from 'react-router-dom';
@@ -11,9 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { VehicleCanvas } from '@/components/VehicleCanvas';
+import { AutoBillGenerator } from '@/components/AutoBillGenerator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { CalendarIcon, ChevronLeft, CircleCheck, Clock, Edit, User, Wrench, FileText, Info, Car, Plus, ArrowRight } from 'lucide-react';
+import { CalendarIcon, ChevronLeft, CircleCheck, Clock, Edit, User, Wrench, FileText, Info, Car, Plus, ArrowRight, IndianRupee } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
 interface VehicleData {
   id: string;
@@ -100,7 +101,17 @@ const VehicleDetail = () => {
   const [vehicle] = useState<VehicleData>(vehicleData); // In a real app, fetch using the ID
   const [activeTab, setActiveTab] = useState('overview');
   const [isJobCardDialogOpen, setIsJobCardDialogOpen] = useState(false);
+  const [isGenerateBillOpen, setIsGenerateBillOpen] = useState(false);
+  const { toast } = useToast();
   
+  const handleGenerateBill = (billData: any) => {
+    toast({
+      title: "Bill Generated Successfully",
+      description: `Invoice created for ₹${billData.total.toLocaleString('en-IN')}`,
+    });
+    setIsGenerateBillOpen(false);
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -326,9 +337,19 @@ const VehicleDetail = () => {
                       Service job cards for this vehicle
                     </CardDescription>
                   </div>
-                  <Button size="sm" className="gap-1" onClick={() => setIsJobCardDialogOpen(true)}>
-                    <Plus className="h-4 w-4" /> Create Job Card
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button size="sm" className="gap-1" onClick={() => setIsJobCardDialogOpen(true)}>
+                      <Plus className="h-4 w-4" /> Create Job Card
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="gap-1" 
+                      onClick={() => setIsGenerateBillOpen(true)}
+                    >
+                      <IndianRupee className="h-4 w-4" /> Generate Bill
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -492,6 +513,31 @@ const VehicleDetail = () => {
               Create Job Card
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isGenerateBillOpen} onOpenChange={setIsGenerateBillOpen}>
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Generate Bill</DialogTitle>
+            <DialogDescription>
+              Automatically generate a bill for this vehicle based on completed services
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            <AutoBillGenerator 
+              jobCardId="JC230915"
+              initialServices={[
+                { id: "s1", name: "Oil Change", cost: 1200 },
+                { id: "s2", name: "Filter Replacement", cost: 800 }
+              ]}
+              initialParts={[
+                { id: "p1", name: "Engine Oil (4L)", quantity: 1, cost: 1200 },
+                { id: "p2", name: "Oil Filter", quantity: 1, cost: 500 }
+              ]}
+              onGenerateBill={handleGenerateBill}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </Layout>
