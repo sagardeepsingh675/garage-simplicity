@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
@@ -15,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InventoryItem, createInventoryItem, getInventoryItems, updateInventoryQuantity } from '@/services/inventoryService';
-import { toast } from '@/components/ui/sonner';
+import { toast } from '@/lib/toast';
 
 const getStockStatus = (quantity: number, minQuantity: number) => {
   if (quantity === 0) return { badge: 'Out of Stock', color: 'bg-destructive/10 text-destructive' };
@@ -58,13 +57,11 @@ const Inventory = () => {
   
   const queryClient = useQueryClient();
   
-  // Fetch inventory items
   const { data: inventory = [], isLoading } = useQuery({
     queryKey: ['inventory'],
     queryFn: getInventoryItems
   });
   
-  // Create inventory item mutation
   const createItemMutation = useMutation({
     mutationFn: createInventoryItem,
     onSuccess: () => {
@@ -111,13 +108,10 @@ const Inventory = () => {
     });
   };
   
-  // Filter inventory based on search and tab
   const filteredInventory = inventory.filter((item: InventoryItem) => {
-    // Filter by tab
     if (activeTab === 'low-stock' && item.quantity >= item.min_quantity) return false;
     if (activeTab === 'in-stock' && item.quantity < item.min_quantity) return false;
     
-    // Filter by search term
     return (
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (item.part_number && item.part_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -126,7 +120,6 @@ const Inventory = () => {
     );
   });
   
-  // Calculate inventory statistics
   const totalItems = inventory.length;
   const lowStockItems = inventory.filter((item: InventoryItem) => item.quantity < item.min_quantity).length;
   const inventoryValue = inventory.reduce((total: number, item: InventoryItem) => total + (item.price * item.quantity), 0);

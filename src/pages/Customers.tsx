@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Search, Plus, MoreHorizontal, User, Phone, Mail, MapPin, Car } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { toast } from '@/components/ui/sonner';
+import { toast } from '@/lib/toast';
 import { Customer, createCustomer, getCustomers } from '@/services/customerService';
 
 const Customers = () => {
