@@ -1,43 +1,69 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Search, Plus, MoreHorizontal, User, Phone, Mail, MapPin, Car } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-
-interface Customer {
-  id: string;
-  name: string;
-  phone: string;
-  email: string;
-  address: string;
-  vehicles: number;
-  lastVisit: string;
-}
-
-const mockCustomers: Customer[] = [
-  { id: '1', name: 'Rajesh Kumar', phone: '+91 98765 43210', email: 'rajesh@example.com', address: 'Mumbai, Maharashtra', vehicles: 2, lastVisit: '2023-07-15' },
-  { id: '2', name: 'Priya Singh', phone: '+91 87654 32109', email: 'priya@example.com', address: 'Delhi, Delhi', vehicles: 1, lastVisit: '2023-08-22' },
-  { id: '3', name: 'Amit Patel', phone: '+91 76543 21098', email: 'amit@example.com', address: 'Ahmedabad, Gujarat', vehicles: 3, lastVisit: '2023-09-05' },
-  { id: '4', name: 'Sunita Sharma', phone: '+91 65432 10987', email: 'sunita@example.com', address: 'Jaipur, Rajasthan', vehicles: 1, lastVisit: '2023-06-30' },
-  { id: '5', name: 'Vikram Mehta', phone: '+91 54321 09876', email: 'vikram@example.com', address: 'Bangalore, Karnataka', vehicles: 2, lastVisit: '2023-08-10' },
-];
+import { toast } from '@/components/ui/sonner';
+import { Customer, createCustomer, getCustomers } from '@/services/customerService';
 
 const Customers = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [customers] = useState<Customer[]>(mockCustomers);
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    address: ''
+  });
   
-  const filteredCustomers = customers.filter(customer => 
+  const queryClient = useQueryClient();
+  
+  // Fetch customers
+  const { data: customers = [], isLoading } = useQuery({
+    queryKey: ['customers'],
+    queryFn: getCustomers
+  });
+  
+  // Create customer mutation
+  const createCustomerMutation = useMutation({
+    mutationFn: createCustomer,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      setIsAddCustomerOpen(false);
+      resetForm();
+    }
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCustomer.name) {
+      toast.error('Customer name is required');
+      return;
+    }
+    createCustomerMutation.mutate(newCustomer);
+  };
+
+  const resetForm = () => {
+    setNewCustomer({
+      name: '',
+      phone: '',
+      email: '',
+      address: ''
+    });
+  };
+  
+  const filteredCustomers = customers.filter((customer: Customer) => 
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.phone.includes(searchTerm) ||
-    customer.email.toLowerCase().includes(searchTerm.toLowerCase())
+    (customer.phone && customer.phone.includes(searchTerm)) ||
+    (customer.email && customer.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
@@ -80,14 +106,20 @@ const Customers = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredCustomers.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
+                      Loading customers...
+                    </TableCell>
+                  </TableRow>
+                ) : filteredCustomers.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
                       No customers found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredCustomers.map(customer => (
+                  filteredCustomers.map((customer: Customer) => (
                     <TableRow key={customer.id} className="hover:bg-muted/30 transition-smooth">
                       <TableCell>
                         <div className="flex items-center gap-3">
@@ -107,30 +139,26 @@ const Customers = () => {
                       <TableCell className="hidden md:table-cell">
                         <div className="flex flex-col">
                           <span className="flex items-center gap-1 text-sm">
-                            <Phone className="h-3 w-3" /> {customer.phone}
+                            <Phone className="h-3 w-3" /> {customer.phone || 'N/A'}
                           </span>
                           <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <Mail className="h-3 w-3" /> {customer.email}
+                            <Mail className="h-3 w-3" /> {customer.email || 'N/A'}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <MapPin className="h-3 w-3" /> {customer.address}
+                          <MapPin className="h-3 w-3" /> {customer.address || 'N/A'}
                         </div>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
                         <div className="flex items-center gap-1">
                           <Car className="h-4 w-4 text-muted-foreground" />
-                          <span>{customer.vehicles}</span>
+                          <span>-</span>
                         </div>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
-                        {new Date(customer.lastVisit).toLocaleDateString('en-IN', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric'
-                        })}
+                        -
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -157,7 +185,10 @@ const Customers = () => {
         </Card>
       </div>
       
-      <Dialog open={isAddCustomerOpen} onOpenChange={setIsAddCustomerOpen}>
+      <Dialog open={isAddCustomerOpen} onOpenChange={(open) => {
+        setIsAddCustomerOpen(open);
+        if (!open) resetForm();
+      }}>
         <DialogContent className="sm:max-w-[525px]">
           <DialogHeader>
             <DialogTitle>Add New Customer</DialogTitle>
@@ -165,40 +196,74 @@ const Customers = () => {
               Enter the customer details below to create a new record.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Name
-              </Label>
-              <Input id="name" className="col-span-3" />
+          <form onSubmit={handleSubmit}>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">
+                  Name
+                </Label>
+                <Input 
+                  id="name" 
+                  className="col-span-3" 
+                  value={newCustomer.name}
+                  onChange={(e) => setNewCustomer({...newCustomer, name: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="phone" className="text-right">
+                  Phone
+                </Label>
+                <Input 
+                  id="phone" 
+                  className="col-span-3" 
+                  value={newCustomer.phone}
+                  onChange={(e) => setNewCustomer({...newCustomer, phone: e.target.value})}
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="email" className="text-right">
+                  Email
+                </Label>
+                <Input 
+                  id="email" 
+                  type="email" 
+                  className="col-span-3" 
+                  value={newCustomer.email}
+                  onChange={(e) => setNewCustomer({...newCustomer, email: e.target.value})}
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="address" className="text-right">
+                  Address
+                </Label>
+                <Input 
+                  id="address" 
+                  className="col-span-3" 
+                  value={newCustomer.address}
+                  onChange={(e) => setNewCustomer({...newCustomer, address: e.target.value})}
+                />
+              </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="phone" className="text-right">
-                Phone
-              </Label>
-              <Input id="phone" className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="email" className="text-right">
-                Email
-              </Label>
-              <Input id="email" type="email" className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="address" className="text-right">
-                Address
-              </Label>
-              <Input id="address" className="col-span-3" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddCustomerOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" onClick={() => setIsAddCustomerOpen(false)}>
-              Save Customer
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                type="button" 
+                onClick={() => {
+                  setIsAddCustomerOpen(false);
+                  resetForm();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={createCustomerMutation.isPending || !newCustomer.name}
+              >
+                {createCustomerMutation.isPending ? 'Saving...' : 'Save Customer'}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </Layout>

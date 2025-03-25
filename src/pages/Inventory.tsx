@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,27 +14,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
-interface InventoryItem {
-  id: string;
-  name: string;
-  category: string;
-  partNumber: string;
-  brand: string;
-  price: number;
-  quantity: number;
-  minQuantity: number;
-  location: string;
-}
-
-const mockInventory: InventoryItem[] = [
-  { id: '1', name: 'Engine Oil Filter', category: 'Filters', partNumber: 'OF-10123', brand: 'Bosch', price: 580, quantity: 28, minQuantity: 10, location: 'Rack A1' },
-  { id: '2', name: 'Front Brake Pads', category: 'Brakes', partNumber: 'BP-22045', brand: 'Brembo', price: 2450, quantity: 12, minQuantity: 8, location: 'Rack B2' },
-  { id: '3', name: 'Spark Plugs Set', category: 'Electrical', partNumber: 'SP-35067', brand: 'NGK', price: 890, quantity: 15, minQuantity: 10, location: 'Rack C3' },
-  { id: '4', name: 'Air Filter', category: 'Filters', partNumber: 'AF-40012', brand: 'Purolator', price: 450, quantity: 7, minQuantity: 10, location: 'Rack A2' },
-  { id: '5', name: 'AC Compressor', category: 'AC System', partNumber: 'AC-55789', brand: 'Denso', price: 12500, quantity: 3, minQuantity: 2, location: 'Rack D1' },
-  { id: '6', name: 'Transmission Fluid', category: 'Fluids', partNumber: 'TF-60234', brand: 'Castrol', price: 780, quantity: 18, minQuantity: 5, location: 'Rack E2' },
-];
+import { InventoryItem, createInventoryItem, getInventoryItems, updateInventoryQuantity } from '@/services/inventoryService';
+import { toast } from '@/components/ui/sonner';
 
 const getStockStatus = (quantity: number, minQuantity: number) => {
   if (quantity === 0) return { badge: 'Out of Stock', color: 'bg-destructive/10 text-destructive' };
@@ -52,29 +34,102 @@ const getStockPercentage = (quantity: number, minQuantity: number) => {
 
 const Inventory = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [inventory] = useState<InventoryItem[]>(mockInventory);
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
+  const [newItem, setNewItem] = useState<{
+    name: string;
+    category: string;
+    part_number: string;
+    brand: string;
+    price: string;
+    quantity: string;
+    min_quantity: string;
+    location: string;
+  }>({
+    name: '',
+    category: '',
+    part_number: '',
+    brand: '',
+    price: '',
+    quantity: '',
+    min_quantity: '',
+    location: ''
+  });
+  
+  const queryClient = useQueryClient();
+  
+  // Fetch inventory items
+  const { data: inventory = [], isLoading } = useQuery({
+    queryKey: ['inventory'],
+    queryFn: getInventoryItems
+  });
+  
+  // Create inventory item mutation
+  const createItemMutation = useMutation({
+    mutationFn: createInventoryItem,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      setIsAddItemOpen(false);
+      resetForm();
+    }
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newItem.name) {
+      toast.error('Item name is required');
+      return;
+    }
+    
+    if (isNaN(Number(newItem.price)) || Number(newItem.price) <= 0) {
+      toast.error('Price must be a positive number');
+      return;
+    }
+
+    createItemMutation.mutate({
+      name: newItem.name,
+      category: newItem.category || undefined,
+      part_number: newItem.part_number || undefined,
+      brand: newItem.brand || undefined,
+      price: Number(newItem.price),
+      quantity: Number(newItem.quantity) || 0,
+      min_quantity: Number(newItem.min_quantity) || 0,
+      location: newItem.location || undefined
+    });
+  };
+
+  const resetForm = () => {
+    setNewItem({
+      name: '',
+      category: '',
+      part_number: '',
+      brand: '',
+      price: '',
+      quantity: '',
+      min_quantity: '',
+      location: ''
+    });
+  };
   
   // Filter inventory based on search and tab
-  const filteredInventory = inventory.filter(item => {
+  const filteredInventory = inventory.filter((item: InventoryItem) => {
     // Filter by tab
-    if (activeTab === 'low-stock' && item.quantity >= item.minQuantity) return false;
-    if (activeTab === 'in-stock' && item.quantity < item.minQuantity) return false;
+    if (activeTab === 'low-stock' && item.quantity >= item.min_quantity) return false;
+    if (activeTab === 'in-stock' && item.quantity < item.min_quantity) return false;
     
     // Filter by search term
     return (
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.partNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchTerm.toLowerCase())
+      (item.part_number && item.part_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (item.brand && item.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (item.category && item.category.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   });
   
   // Calculate inventory statistics
   const totalItems = inventory.length;
-  const lowStockItems = inventory.filter(item => item.quantity < item.minQuantity).length;
-  const inventoryValue = inventory.reduce((total, item) => total + (item.price * item.quantity), 0);
+  const lowStockItems = inventory.filter((item: InventoryItem) => item.quantity < item.min_quantity).length;
+  const inventoryValue = inventory.reduce((total: number, item: InventoryItem) => total + (item.price * item.quantity), 0);
 
   return (
     <Layout>
@@ -167,16 +222,22 @@ const Inventory = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredInventory.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
+                      Loading inventory...
+                    </TableCell>
+                  </TableRow>
+                ) : filteredInventory.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
                       No inventory items found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredInventory.map(item => {
-                    const stockStatus = getStockStatus(item.quantity, item.minQuantity);
-                    const stockPercentage = getStockPercentage(item.quantity, item.minQuantity);
+                  filteredInventory.map((item: InventoryItem) => {
+                    const stockStatus = getStockStatus(item.quantity, item.min_quantity);
+                    const stockPercentage = getStockPercentage(item.quantity, item.min_quantity);
                     
                     return (
                       <TableRow key={item.id} className="hover:bg-muted/30 transition-smooth">
@@ -184,14 +245,14 @@ const Inventory = () => {
                           <div className="flex flex-col">
                             <span className="font-medium">{item.name}</span>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>{item.partNumber}</span>
+                              <span>{item.part_number || 'No Part #'}</span>
                               <span>•</span>
-                              <span>{item.brand}</span>
+                              <span>{item.brand || 'No Brand'}</span>
                             </div>
                           </div>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
-                          {item.category}
+                          {item.category || 'Uncategorized'}
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1 max-w-[150px]">
@@ -205,17 +266,17 @@ const Inventory = () => {
                               value={stockPercentage}
                               className={`h-2 ${
                                 item.quantity === 0 ? 'bg-destructive/20' :
-                                item.quantity < item.minQuantity ? 'bg-warning/20' : 'bg-success/20'
+                                item.quantity < item.min_quantity ? 'bg-warning/20' : 'bg-success/20'
                               }`}
                               indicatorClassName={
                                 item.quantity === 0 ? 'bg-destructive' :
-                                item.quantity < item.minQuantity ? 'bg-warning' : 'bg-success'
+                                item.quantity < item.min_quantity ? 'bg-warning' : 'bg-success'
                               }
                             />
                           </div>
                         </TableCell>
                         <TableCell className="hidden lg:table-cell">
-                          {item.location}
+                          {item.location || 'Not specified'}
                         </TableCell>
                         <TableCell className="text-right font-medium">
                           ₹{item.price.toLocaleString('en-IN')}
@@ -246,7 +307,10 @@ const Inventory = () => {
         </Card>
       </div>
       
-      <Dialog open={isAddItemOpen} onOpenChange={setIsAddItemOpen}>
+      <Dialog open={isAddItemOpen} onOpenChange={(open) => {
+        setIsAddItemOpen(open);
+        if (!open) resetForm();
+      }}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Add Inventory Item</DialogTitle>
@@ -254,76 +318,126 @@ const Inventory = () => {
               Add a new part or supply to your inventory
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="item-name">Item Name</Label>
-                <Input id="item-name" placeholder="e.g. Engine Oil Filter" />
+          <form onSubmit={handleSubmit}>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="item-name">Item Name</Label>
+                  <Input 
+                    id="item-name" 
+                    placeholder="e.g. Engine Oil Filter" 
+                    value={newItem.name}
+                    onChange={(e) => setNewItem({...newItem, name: e.target.value})}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Select 
+                    value={newItem.category} 
+                    onValueChange={(value) => setNewItem({...newItem, category: value})}
+                  >
+                    <SelectTrigger id="category">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="filters">Filters</SelectItem>
+                      <SelectItem value="brakes">Brakes</SelectItem>
+                      <SelectItem value="electrical">Electrical</SelectItem>
+                      <SelectItem value="fluids">Fluids</SelectItem>
+                      <SelectItem value="engine">Engine Parts</SelectItem>
+                      <SelectItem value="ac">AC System</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <Select>
-                  <SelectTrigger id="category">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="filters">Filters</SelectItem>
-                    <SelectItem value="brakes">Brakes</SelectItem>
-                    <SelectItem value="electrical">Electrical</SelectItem>
-                    <SelectItem value="fluids">Fluids</SelectItem>
-                    <SelectItem value="engine">Engine Parts</SelectItem>
-                    <SelectItem value="ac">AC System</SelectItem>
-                  </SelectContent>
-                </Select>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="part-number">Part Number</Label>
+                  <Input 
+                    id="part-number" 
+                    placeholder="e.g. OF-10123" 
+                    value={newItem.part_number}
+                    onChange={(e) => setNewItem({...newItem, part_number: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="brand">Brand</Label>
+                  <Input 
+                    id="brand" 
+                    placeholder="e.g. Bosch" 
+                    value={newItem.brand}
+                    onChange={(e) => setNewItem({...newItem, brand: e.target.value})}
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="price">Price (₹)</Label>
+                  <Input 
+                    id="price" 
+                    type="number" 
+                    placeholder="0.00" 
+                    value={newItem.price}
+                    onChange={(e) => setNewItem({...newItem, price: e.target.value})}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="location">Storage Location</Label>
+                  <Input 
+                    id="location" 
+                    placeholder="e.g. Rack A1" 
+                    value={newItem.location}
+                    onChange={(e) => setNewItem({...newItem, location: e.target.value})}
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="quantity">Initial Quantity</Label>
+                  <Input 
+                    id="quantity" 
+                    type="number" 
+                    placeholder="0" 
+                    value={newItem.quantity}
+                    onChange={(e) => setNewItem({...newItem, quantity: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="min-quantity">Minimum Quantity</Label>
+                  <Input 
+                    id="min-quantity" 
+                    type="number" 
+                    placeholder="0" 
+                    value={newItem.min_quantity}
+                    onChange={(e) => setNewItem({...newItem, min_quantity: e.target.value})}
+                  />
+                </div>
               </div>
             </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="part-number">Part Number</Label>
-                <Input id="part-number" placeholder="e.g. OF-10123" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="brand">Brand</Label>
-                <Input id="brand" placeholder="e.g. Bosch" />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="price">Price (₹)</Label>
-                <Input id="price" type="number" placeholder="0.00" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="location">Storage Location</Label>
-                <Input id="location" placeholder="e.g. Rack A1" />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="quantity">Initial Quantity</Label>
-                <Input id="quantity" type="number" placeholder="0" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="min-quantity">Minimum Quantity</Label>
-                <Input id="min-quantity" type="number" placeholder="0" />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="notes">Additional Notes</Label>
-              <Input id="notes" placeholder="Any additional details about this item" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddItemOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" onClick={() => setIsAddItemOpen(false)}>
-              Add Item
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                type="button" 
+                onClick={() => {
+                  setIsAddItemOpen(false);
+                  resetForm();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={createItemMutation.isPending || !newItem.name || !newItem.price}
+              >
+                {createItemMutation.isPending ? 'Adding...' : 'Add Item'}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </Layout>
