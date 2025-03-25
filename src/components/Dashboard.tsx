@@ -1,8 +1,13 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity, Car, Clipboard, Package, Users, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { useQuery } from '@tanstack/react-query';
+import { getVehicles } from '@/services/vehicleService';
+import { getCustomers } from '@/services/customerService';
+import { getJobCards } from '@/services/jobCardService';
+import { getStaff } from '@/services/staffService';
+import { getInventoryItems } from '@/services/inventoryService';
 
 interface StatCardProps {
   title: string;
@@ -41,6 +46,91 @@ const StatCard = ({ title, value, description, icon: Icon, trend, trendValue, ic
 };
 
 export function Dashboard() {
+  // Fetch data from Supabase
+  const { data: vehicles = [], isLoading: isLoadingVehicles } = useQuery({
+    queryKey: ['vehicles'],
+    queryFn: getVehicles
+  });
+
+  const { data: customers = [], isLoading: isLoadingCustomers } = useQuery({
+    queryKey: ['customers'],
+    queryFn: getCustomers
+  });
+
+  const { data: jobCards = [], isLoading: isLoadingJobCards } = useQuery({
+    queryKey: ['jobCards'],
+    queryFn: getJobCards
+  });
+
+  const { data: staffMembers = [], isLoading: isLoadingStaff } = useQuery({
+    queryKey: ['staff'],
+    queryFn: getStaff
+  });
+
+  const { data: inventoryItems = [], isLoading: isLoadingInventory } = useQuery({
+    queryKey: ['inventory'],
+    queryFn: getInventoryItems
+  });
+
+  // Calculate statistics
+  const totalVehicles = vehicles.length;
+  const totalCustomers = customers.length;
+  const openJobCards = jobCards.filter(card => card.status !== 'completed' && card.status !== 'cancelled').length;
+  const totalInventoryItems = inventoryItems.length;
+  const lowStockItems = inventoryItems.filter(item => item.quantity <= item.min_quantity).length;
+  const inventoryValue = inventoryItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+  // Get recent activities
+  const recentActivities = [
+    ...jobCards.slice(0, 3).map(card => ({
+      time: new Date(card.created_at || '').toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      desc: `New job card created for ${card.customers?.name || 'customer'}`,
+      type: 'job'
+    })),
+    ...vehicles.slice(0, 2).map(vehicle => ({
+      time: new Date(vehicle.created_at || '').toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      desc: `New vehicle registered - ${vehicle.license_plate}`,
+      type: 'vehicle'
+    }))
+  ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 5);
+
+  // Calculate staff workload
+  const staffWorkload = staffMembers.map(staff => {
+    const assignedJobs = jobCards.filter(card => card.assigned_staff === staff.id);
+    const workload = (assignedJobs.length / 5) * 100; // Assuming 5 jobs is 100% workload
+    return {
+      name: staff.name,
+      role: staff.role,
+      load: Math.min(workload, 100)
+    };
+  });
+
+  const isLoading = isLoadingVehicles || isLoadingCustomers || isLoadingJobCards || isLoadingStaff || isLoadingInventory;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+          <p className="text-muted-foreground">Loading dashboard data...</p>
+        </div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="animate-pulse">
+              <CardHeader className="p-6 pb-2">
+                <div className="h-4 w-24 bg-muted rounded" />
+              </CardHeader>
+              <CardContent className="p-6 pt-2">
+                <div className="h-8 w-16 bg-muted rounded" />
+                <div className="h-3 w-32 bg-muted rounded mt-2" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -51,7 +141,7 @@ export function Dashboard() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <StatCard 
           title="Total Vehicles" 
-          value="142" 
+          value={totalVehicles} 
           description="Active vehicle records" 
           icon={Car} 
           trend="up" 
@@ -59,7 +149,7 @@ export function Dashboard() {
         />
         <StatCard 
           title="Customers" 
-          value="89" 
+          value={totalCustomers} 
           description="Registered customers" 
           icon={Users} 
           trend="up" 
@@ -68,7 +158,7 @@ export function Dashboard() {
         />
         <StatCard 
           title="Job Cards" 
-          value="24" 
+          value={openJobCards} 
           description="Open job cards" 
           icon={Clipboard} 
           trend="down" 
@@ -77,14 +167,14 @@ export function Dashboard() {
         />
         <StatCard 
           title="Inventory" 
-          value="310" 
+          value={totalInventoryItems} 
           description="Parts in stock" 
           icon={Package} 
           iconColor="bg-success/10 text-success"
         />
       </div>
       
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
         <Card className="col-span-2 transition-smooth card-hover">
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
@@ -92,13 +182,7 @@ export function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {[
-                { time: '09:32 AM', desc: 'New job card created for customer Rajesh Kumar', type: 'job' },
-                { time: '08:15 AM', desc: 'Vehicle servicing completed - MH02AB1234', type: 'vehicle' },
-                { time: 'Yesterday', desc: 'New customer registered - Priya Singh', type: 'customer' },
-                { time: 'Yesterday', desc: 'Inventory updated - 5 new brake pads added', type: 'inventory' },
-                { time: '2 days ago', desc: 'Job assigned to Technician Amit', type: 'job' },
-              ].map((activity, i) => (
+              {recentActivities.map((activity, i) => (
                 <div key={i} className="flex items-start gap-4 animate-fade-in" style={{ animationDelay: `${i * 100}ms` }}>
                   <div className={`mt-1 h-2 w-2 rounded-full ${
                     activity.type === 'job' ? 'bg-primary' : 
@@ -115,25 +199,20 @@ export function Dashboard() {
           </CardContent>
         </Card>
         
-        <Card className="transition-smooth card-hover">
+        <Card className="col-span-2 transition-smooth card-hover">
           <CardHeader>
             <CardTitle>Workload</CardTitle>
             <CardDescription>Staff assignment status</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {[
-              { name: 'Amit Kumar', role: 'Senior Technician', load: 82 },
-              { name: 'Suresh Patel', role: 'Technician', load: 45 },
-              { name: 'Dinesh Singh', role: 'Junior Technician', load: 68 },
-              { name: 'Ravi Sharma', role: 'Technician', load: 30 },
-            ].map((staff, i) => (
+            {staffWorkload.map((staff, i) => (
               <div key={i} className="space-y-2 animate-fade-in" style={{ animationDelay: `${i * 100}ms` }}>
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium leading-none">{staff.name}</p>
                     <p className="text-xs text-muted-foreground">{staff.role}</p>
                   </div>
-                  <p className="text-sm font-medium">{staff.load}%</p>
+                  <p className="text-sm font-medium">{Math.round(staff.load)}%</p>
                 </div>
                 <Progress
                   value={staff.load} 

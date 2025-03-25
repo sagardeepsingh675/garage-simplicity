@@ -1,5 +1,5 @@
-
 import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,30 +8,36 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, MoreHorizontal, Phone, Mail, Calendar, Briefcase } from 'lucide-react';
+import { Search, Plus, MoreHorizontal, Phone, Mail, Calendar, Briefcase, Trash2 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { toast } from '@/lib/toast';
+import { getStaff, createStaff, updateStaff, deleteStaff, Staff as StaffType } from '@/services/staffService';
 
-interface StaffMember {
+type SkillOption = {
   id: string;
   name: string;
-  role: string;
-  phone: string;
-  email: string;
-  joinDate: string;
-  workload: number;
-  skills: string[];
-  status: 'active' | 'on-leave' | 'unavailable';
-}
+};
 
-const mockStaff: StaffMember[] = [
-  { id: '1', name: 'Amit Kumar', role: 'Senior Technician', phone: '+91 98765 43210', email: 'amit@garage.in', joinDate: '2018-05-15', workload: 82, skills: ['Engine', 'Transmission', 'Electrical'], status: 'active' },
-  { id: '2', name: 'Suresh Patel', role: 'Technician', phone: '+91 87654 32109', email: 'suresh@garage.in', joinDate: '2020-08-22', workload: 45, skills: ['Brakes', 'Suspension', 'AC'], status: 'active' },
-  { id: '3', name: 'Dinesh Singh', role: 'Junior Technician', phone: '+91 76543 21098', email: 'dinesh@garage.in', joinDate: '2021-03-10', workload: 68, skills: ['Oil Change', 'Tire Service', 'Basic Maintenance'], status: 'active' },
-  { id: '4', name: 'Ravi Sharma', role: 'Technician', phone: '+91 65432 10987', email: 'ravi@garage.in', joinDate: '2019-11-05', workload: 30, skills: ['Diagnostics', 'Electrical', 'Battery'], status: 'on-leave' },
-  { id: '5', name: 'Nikhil Verma', role: 'Service Advisor', phone: '+91 54321 09876', email: 'nikhil@garage.in', joinDate: '2020-02-18', workload: 60, skills: ['Customer Service', 'Job Estimation', 'Inspection'], status: 'active' },
+// Available skills
+const skillOptions: SkillOption[] = [
+  { id: 'engine', name: 'Engine' },
+  { id: 'transmission', name: 'Transmission' },
+  { id: 'electrical', name: 'Electrical' },
+  { id: 'brakes', name: 'Brakes' },
+  { id: 'suspension', name: 'Suspension' },
+  { id: 'ac', name: 'AC' },
+  { id: 'diagnostics', name: 'Diagnostics' },
+  { id: 'oil-change', name: 'Oil Change' },
+  { id: 'tire-service', name: 'Tire Service' },
+  { id: 'basic-maintenance', name: 'Basic Maintenance' },
+  { id: 'battery', name: 'Battery' },
+  { id: 'customer-service', name: 'Customer Service' },
+  { id: 'job-estimation', name: 'Job Estimation' },
+  { id: 'inspection', name: 'Inspection' },
 ];
 
 const getStatusColor = (status: string) => {
@@ -61,13 +67,164 @@ const getWorkloadIndicator = (workload: number) => {
 
 const Staff = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [staff] = useState<StaffMember[]>(mockStaff);
   const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
+  const [isEditStaffOpen, setIsEditStaffOpen] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState<StaffType | null>(null);
+  const [newStaff, setNewStaff] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    role: '',
+    specialty: '',
+    active: true,
+    skills: [] as string[],
+    workload: 0
+  });
   
-  const filteredStaff = staff.filter(member => 
+  const queryClient = useQueryClient();
+  
+  // Fetch staff
+  const { data: staffMembers = [], isLoading } = useQuery({
+    queryKey: ['staff'],
+    queryFn: async () => {
+      const data = await getStaff();
+      console.log('Staff query success:', data);
+      return data;
+    }
+  });
+  
+  // Create staff mutation
+  const createStaffMutation = useMutation({
+    mutationFn: createStaff,
+    onSuccess: (data) => {
+      console.log('Staff creation mutation success:', data);
+      queryClient.invalidateQueries({ queryKey: ['staff'] });
+      resetForm();
+      setIsAddStaffOpen(false);
+      toast.success('Staff member added successfully');
+    },
+    onError: (error) => {
+      console.error('Staff creation mutation error:', error);
+      toast.error('Failed to add staff member');
+    }
+  });
+  
+  // Update staff mutation
+  const updateStaffMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<StaffType> }) => updateStaff(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff'] });
+      setIsEditStaffOpen(false);
+      setSelectedStaff(null);
+      toast.success('Staff member updated successfully');
+    },
+    onError: (error) => {
+      toast.error('Failed to update staff member');
+      console.error(error);
+    }
+  });
+  
+  // Delete staff mutation
+  const deleteStaffMutation = useMutation({
+    mutationFn: deleteStaff,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff'] });
+      toast.success('Staff member deleted successfully');
+    },
+    onError: (error) => {
+      toast.error('Failed to delete staff member');
+      console.error(error);
+    }
+  });
+  
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStaff.name || !newStaff.role) {
+      toast.error('Name and role are required');
+      return;
+    }
+    
+    // Convert skills array to specialty string and clean up the data
+    const staffData = {
+      name: newStaff.name.trim(),
+      role: newStaff.role.trim(),
+      email: newStaff.email?.trim() || null,
+      phone: newStaff.phone?.trim() || null,
+      specialty: newStaff.skills.length > 0 ? newStaff.skills.join(',') : null,
+      active: newStaff.active
+    };
+    
+    console.log('Submitting staff data:', staffData);
+    createStaffMutation.mutate(staffData);
+  };
+  
+  const handleEdit = (staffMember: StaffType) => {
+    setSelectedStaff(staffMember);
+    setIsEditStaffOpen(true);
+  };
+  
+  const handleUpdateSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStaff) return;
+    
+    updateStaffMutation.mutate({ id: selectedStaff.id, data: selectedStaff });
+  };
+  
+  const handleDelete = (id: string) => {
+    if (confirm('Are you sure you want to delete this staff member?')) {
+      deleteStaffMutation.mutate(id);
+    }
+  };
+  
+  const resetForm = () => {
+    setNewStaff({
+      name: '',
+      email: '',
+      phone: '',
+      role: '',
+      specialty: '',
+      active: true,
+      skills: [],
+      workload: 0
+    });
+  };
+  
+  const toggleSkill = (skill: string) => {
+    const currentSkills = newStaff.skills || [];
+    if (currentSkills.includes(skill)) {
+      setNewStaff({
+        ...newStaff,
+        skills: currentSkills.filter(s => s !== skill)
+      });
+    } else {
+      setNewStaff({
+        ...newStaff,
+        skills: [...currentSkills, skill]
+      });
+    }
+  };
+  
+  const toggleSelectedSkill = (skill: string) => {
+    if (!selectedStaff) return;
+    
+    const currentSkills = selectedStaff.specialty?.split(',') || [];
+    if (currentSkills.includes(skill)) {
+      setSelectedStaff({
+        ...selectedStaff,
+        specialty: currentSkills.filter(s => s !== skill).join(',')
+      });
+    } else {
+      setSelectedStaff({
+        ...selectedStaff,
+        specialty: [...currentSkills, skill].join(',')
+      });
+    }
+  };
+  
+  const filteredStaff = staffMembers.filter((member: StaffType) => 
     member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     member.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    member.email.toLowerCase().includes(searchTerm.toLowerCase())
+    (member.email && member.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
@@ -104,20 +261,26 @@ const Staff = () => {
                   <TableHead>Name</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead className="hidden lg:table-cell">Skills</TableHead>
-                  <TableHead>Workload</TableHead>
-                  <TableHead className="hidden md:table-cell">Status</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden md:table-cell">Workload</TableHead>
                   <TableHead className="w-[60px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredStaff.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
+                      Loading staff members...
+                    </TableCell>
+                  </TableRow>
+                ) : filteredStaff.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
                       No staff found
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredStaff.map(member => (
+                  filteredStaff.map((member: StaffType) => (
                     <TableRow key={member.id} className="hover:bg-muted/30 transition-smooth">
                       <TableCell>
                         <div className="flex items-center gap-3">
@@ -136,17 +299,21 @@ const Staff = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col text-sm">
+                          {member.phone && (
                           <span className="flex items-center gap-1">
                             <Phone className="h-3 w-3 text-muted-foreground" /> {member.phone}
                           </span>
+                          )}
+                          {member.email && (
                           <span className="flex items-center gap-1 text-muted-foreground">
                             <Mail className="h-3 w-3" /> {member.email}
                           </span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
                         <div className="flex flex-wrap gap-1">
-                          {member.skills.map((skill, idx) => (
+                          {member.specialty && member.specialty.split(',').map((skill, idx) => (
                             <Badge key={idx} variant="secondary" className="text-xs">
                               {skill}
                             </Badge>
@@ -154,6 +321,12 @@ const Staff = () => {
                         </div>
                       </TableCell>
                       <TableCell>
+                        <Badge className={getStatusColor(member.active ? 'active' : 'unavailable')}>
+                          {member.active ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {typeof member.workload === 'number' && (
                         <div className="space-y-1 max-w-[150px]">
                           <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Workload</span>
@@ -165,12 +338,7 @@ const Staff = () => {
                             indicatorClassName={getWorkloadIndicator(member.workload)}
                           />
                         </div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <Badge className={`${getStatusColor(member.status)}`}>
-                          {member.status === 'active' ? 'Active' : 
-                           member.status === 'on-leave' ? 'On Leave' : 'Unavailable'}
-                        </Badge>
+                        )}
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -181,10 +349,8 @@ const Staff = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>View details</DropdownMenuItem>
-                            <DropdownMenuItem>Edit staff</DropdownMenuItem>
-                            <DropdownMenuItem>Assigned jobs</DropdownMenuItem>
-                            <DropdownMenuItem>Update status</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEdit(member)}>Edit staff</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDelete(member.id)}>Delete staff</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -197,7 +363,11 @@ const Staff = () => {
         </Card>
       </div>
       
-      <Dialog open={isAddStaffOpen} onOpenChange={setIsAddStaffOpen}>
+      {/* Add Staff Dialog */}
+      <Dialog open={isAddStaffOpen} onOpenChange={(open) => {
+        setIsAddStaffOpen(open);
+        if (!open) resetForm();
+      }}>
         <DialogContent className="sm:max-w-[525px]">
           <DialogHeader>
             <DialogTitle>Add New Staff</DialogTitle>
@@ -205,27 +375,37 @@ const Staff = () => {
               Enter staff details to create a new record.
             </DialogDescription>
           </DialogHeader>
+          <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="name" className="text-right">
                 Name
               </Label>
-              <Input id="name" className="col-span-3" />
+                <Input 
+                  id="name" 
+                  className="col-span-3" 
+                  value={newStaff.name}
+                  onChange={(e) => setNewStaff({...newStaff, name: e.target.value})}
+                  required
+                />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="role" className="text-right">
                 Role
               </Label>
-              <Select>
+                <Select 
+                  value={newStaff.role}
+                  onValueChange={(value) => setNewStaff({...newStaff, role: value})}
+                >
                 <SelectTrigger id="role" className="col-span-3">
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="senior-technician">Senior Technician</SelectItem>
-                  <SelectItem value="technician">Technician</SelectItem>
-                  <SelectItem value="junior-technician">Junior Technician</SelectItem>
-                  <SelectItem value="service-advisor">Service Advisor</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
+                    <SelectItem value="Senior Technician">Senior Technician</SelectItem>
+                    <SelectItem value="Technician">Technician</SelectItem>
+                    <SelectItem value="Junior Technician">Junior Technician</SelectItem>
+                    <SelectItem value="Service Advisor">Service Advisor</SelectItem>
+                    <SelectItem value="Manager">Manager</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -233,35 +413,215 @@ const Staff = () => {
               <Label htmlFor="phone" className="text-right">
                 Phone
               </Label>
-              <Input id="phone" className="col-span-3" />
+                <Input 
+                  id="phone" 
+                  className="col-span-3" 
+                  value={newStaff.phone}
+                  onChange={(e) => setNewStaff({...newStaff, phone: e.target.value})}
+                />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="email" className="text-right">
                 Email
               </Label>
-              <Input id="email" type="email" className="col-span-3" />
+                <Input 
+                  id="email" 
+                  type="email" 
+                  className="col-span-3" 
+                  value={newStaff.email}
+                  onChange={(e) => setNewStaff({...newStaff, email: e.target.value})}
+                />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="join-date" className="text-right">
-                Join Date
+                <Label className="text-right">
+                  Status
               </Label>
-              <Input id="join-date" type="date" className="col-span-3" />
+                <div className="flex items-center space-x-2 col-span-3">
+                  <Checkbox 
+                    id="active" 
+                    checked={newStaff.active}
+                    onCheckedChange={(checked) => setNewStaff({...newStaff, active: checked as boolean})}
+                  />
+                  <label htmlFor="active" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    Active
+                  </label>
+                </div>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="skills" className="text-right">
+                <Label htmlFor="workload" className="text-right">
+                  Workload %
+                </Label>
+                <Input 
+                  id="workload" 
+                  type="number" 
+                  min="0"
+                  max="100"
+                  className="col-span-3" 
+                  value={newStaff.workload || 0}
+                  onChange={(e) => setNewStaff({...newStaff, workload: Number(e.target.value)})}
+                />
+              </div>
+              <div className="grid grid-cols-4 gap-4">
+                <Label className="text-right pt-2">
                 Skills
               </Label>
-              <Input id="skills" placeholder="Engine, Brakes, Electrical, etc." className="col-span-3" />
+                <div className="col-span-3 grid grid-cols-2 gap-2">
+                  {skillOptions.map((skill) => (
+                    <div key={skill.id} className="flex items-center space-x-2">
+                      <Checkbox 
+                        id={`skill-${skill.id}`} 
+                        checked={newStaff.skills.includes(skill.name)}
+                        onCheckedChange={() => toggleSkill(skill.name)}
+                      />
+                      <label htmlFor={`skill-${skill.id}`} className="text-sm font-medium leading-none">
+                        {skill.name}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" type="button" onClick={() => setIsAddStaffOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createStaffMutation.isPending}>
+                {createStaffMutation.isPending ? 'Saving...' : 'Save'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Edit Staff Dialog */}
+      <Dialog open={isEditStaffOpen} onOpenChange={(open) => {
+        setIsEditStaffOpen(open);
+        if (!open) setSelectedStaff(null);
+      }}>
+        <DialogContent className="sm:max-w-[525px]">
+          <DialogHeader>
+            <DialogTitle>Edit Staff Member</DialogTitle>
+            <DialogDescription>
+              Update staff details.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedStaff && (
+            <form onSubmit={handleUpdateSubmit}>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-name" className="text-right">
+                    Name
+                  </Label>
+                  <Input 
+                    id="edit-name" 
+                    className="col-span-3" 
+                    value={selectedStaff.name}
+                    onChange={(e) => setSelectedStaff({...selectedStaff, name: e.target.value})}
+                    required
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-role" className="text-right">
+                    Role
+                  </Label>
+                  <Select 
+                    value={selectedStaff.role}
+                    onValueChange={(value) => setSelectedStaff({...selectedStaff, role: value})}
+                  >
+                    <SelectTrigger id="edit-role" className="col-span-3">
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Senior Technician">Senior Technician</SelectItem>
+                      <SelectItem value="Technician">Technician</SelectItem>
+                      <SelectItem value="Junior Technician">Junior Technician</SelectItem>
+                      <SelectItem value="Service Advisor">Service Advisor</SelectItem>
+                      <SelectItem value="Manager">Manager</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-phone" className="text-right">
+                    Phone
+                  </Label>
+                  <Input 
+                    id="edit-phone" 
+                    className="col-span-3" 
+                    value={selectedStaff.phone || ''}
+                    onChange={(e) => setSelectedStaff({...selectedStaff, phone: e.target.value})}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-email" className="text-right">
+                    Email
+                  </Label>
+                  <Input 
+                    id="edit-email" 
+                    type="email" 
+                    className="col-span-3" 
+                    value={selectedStaff.email || ''}
+                    onChange={(e) => setSelectedStaff({...selectedStaff, email: e.target.value})}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">
+                    Status
+                  </Label>
+                  <div className="flex items-center space-x-2 col-span-3">
+                    <Checkbox 
+                      id="edit-active" 
+                      checked={selectedStaff.active}
+                      onCheckedChange={(checked) => setSelectedStaff({...selectedStaff, active: checked as boolean})}
+                    />
+                    <label htmlFor="edit-active" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      Active
+                    </label>
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-workload" className="text-right">
+                    Workload %
+                  </Label>
+                  <Input 
+                    id="edit-workload" 
+                    type="number" 
+                    min="0"
+                    max="100"
+                    className="col-span-3" 
+                    value={selectedStaff.workload || 0}
+                    onChange={(e) => setSelectedStaff({...selectedStaff, workload: Number(e.target.value)})}
+                  />
+                </div>
+                <div className="grid grid-cols-4 gap-4">
+                  <Label className="text-right pt-2">
+                    Skills
+                  </Label>
+                  <div className="col-span-3 grid grid-cols-2 gap-2">
+                    {skillOptions.map((skill) => (
+                      <div key={`edit-${skill.id}`} className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`edit-skill-${skill.id}`} 
+                          checked={selectedStaff.specialty?.includes(skill.name)}
+                          onCheckedChange={() => toggleSelectedSkill(skill.name)}
+                        />
+                        <label htmlFor={`edit-skill-${skill.id}`} className="text-sm font-medium leading-none">
+                          {skill.name}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddStaffOpen(false)}>
+                <Button variant="outline" type="button" onClick={() => setIsEditStaffOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" onClick={() => setIsAddStaffOpen(false)}>
-              Save Staff
+                <Button type="submit" disabled={updateStaffMutation.isPending}>
+                  {updateStaffMutation.isPending ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </Layout>

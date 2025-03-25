@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +23,8 @@ interface AutoBillGeneratorProps {
   jobCardId?: string;
   initialServices?: ServiceItem[];
   initialParts?: PartItem[];
+  vehicleData?: any;
+  customerData?: any;
   onGenerateBill?: (data: {
     services: ServiceItem[];
     parts: PartItem[];
@@ -36,6 +37,8 @@ export function AutoBillGenerator({
   jobCardId,
   initialServices = [],
   initialParts = [],
+  vehicleData,
+  customerData,
   onGenerateBill
 }: AutoBillGeneratorProps) {
   const [services, setServices] = useState<ServiceItem[]>(initialServices);
@@ -95,11 +98,19 @@ export function AutoBillGenerator({
 
   return (
     <div className="space-y-6">
-      {jobCardId && (
+      {(vehicleData || jobCardId) && (
         <div className="flex items-center justify-between bg-muted/30 p-3 rounded-lg">
           <div>
             <p className="text-sm text-muted-foreground">Auto-generating bill for:</p>
-            <p className="font-medium">Job Card #{jobCardId}</p>
+            {jobCardId && <p className="font-medium">Job Card #{jobCardId}</p>}
+            {vehicleData && (
+              <p className="font-medium">
+                {vehicleData.make} {vehicleData.model} {vehicleData.license_plate ? `(${vehicleData.license_plate})` : ''}
+              </p>
+            )}
+            {customerData && (
+              <p className="text-sm">{customerData.name}</p>
+            )}
           </div>
           <Badge variant="outline" className="ml-auto">Auto Bill</Badge>
         </div>
@@ -257,28 +268,48 @@ export function AutoBillGenerator({
         </CardContent>
       </Card>
       
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Additional Notes</label>
-        <Input
-          placeholder="Add any special notes or payment terms"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-        />
-      </div>
-      
-      <div className="flex justify-between items-center p-4 bg-muted/30 rounded-lg">
-        <div>
-          <p className="text-sm text-muted-foreground">Total Amount</p>
-          <p className="text-2xl font-bold flex items-center">
-            <IndianRupee className="h-4 w-4 mr-1" />
-            {totals.total.toLocaleString('en-IN')}
-          </p>
-        </div>
-        
-        <Button onClick={handleGenerate} className="gap-1" size="lg">
-          <IndianRupee className="h-4 w-4" /> Generate Bill
-        </Button>
-      </div>
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Bill Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="border rounded-md">
+              <Table>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="font-medium">Services Total</TableCell>
+                    <TableCell className="text-right">₹{totals.services.toLocaleString('en-IN')}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">Parts Total</TableCell>
+                    <TableCell className="text-right">₹{totals.parts.toLocaleString('en-IN')}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">Grand Total</TableCell>
+                    <TableCell className="text-right font-bold text-lg">₹{totals.total.toLocaleString('en-IN')}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+            
+            <div>
+              <Input 
+                placeholder="Additional notes or payment information" 
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </div>
+            
+            <div className="pt-2 flex justify-end">
+              <Button onClick={handleGenerate} className="gap-1" disabled={totals.total === 0}>
+                <IndianRupee className="h-4 w-4" />
+                Generate Bill
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

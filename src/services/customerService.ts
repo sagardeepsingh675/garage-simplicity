@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/lib/toast";
 
@@ -31,6 +30,8 @@ export async function getCustomers() {
 
 export async function getCustomerById(id: string) {
   try {
+    if (!id) return null;
+    
     const { data, error } = await supabase
       .from('customers')
       .select('*')

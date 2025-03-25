@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -9,30 +8,18 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Plus, MoreHorizontal, FileText, Calendar, Car, User, CreditCard, Clock } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getJobCards, createJobCard, updateJobCardStatus, JobCard } from '@/services/jobCardService';
+import { getVehicles } from '@/services/vehicleService';
+import { getCustomers } from '@/services/customerService';
+import { getStaff } from '@/services/staffService';
+import { toast } from '@/lib/toast';
+import { Link } from 'react-router-dom';
 
-interface JobCard {
-  id: string;
-  vehicleReg: string;
-  vehicleDetails: string;
-  customer: string;
-  assignedTo: string;
-  serviceType: string;
-  createdDate: string;
-  estimatedCompletion: string;
-  status: 'pending' | 'in-progress' | 'completed' | 'cancelled';
-  estimatedCost: number;
-}
-
-const mockJobCards: JobCard[] = [
-  { id: 'JC230925', vehicleReg: 'MH02AB1234', vehicleDetails: 'Honda City 2020', customer: 'Rajesh Kumar', assignedTo: 'Amit Kumar', serviceType: 'Regular Maintenance', createdDate: '2023-09-25', estimatedCompletion: '2023-09-27', status: 'in-progress', estimatedCost: 4500 },
-  { id: 'JC230924', vehicleReg: 'DL01CD5678', vehicleDetails: 'Hyundai Creta 2021', customer: 'Priya Singh', assignedTo: 'Suresh Patel', serviceType: 'Brake Service', createdDate: '2023-09-24', estimatedCompletion: '2023-09-26', status: 'pending', estimatedCost: 5200 },
-  { id: 'JC230923', vehicleReg: 'GJ05EF9012', vehicleDetails: 'Maruti Swift 2019', customer: 'Amit Patel', assignedTo: 'Dinesh Singh', serviceType: 'AC Repair', createdDate: '2023-09-23', estimatedCompletion: '2023-09-25', status: 'in-progress', estimatedCost: 3800 },
-  { id: 'JC230922', vehicleReg: 'RJ06GH3456', vehicleDetails: 'Tata Nexon 2022', customer: 'Sunita Sharma', assignedTo: 'Amit Kumar', serviceType: 'Oil Change', createdDate: '2023-09-22', estimatedCompletion: '2023-09-22', status: 'completed', estimatedCost: 2500 },
-  { id: 'JC230921', vehicleReg: 'KA03IJ7890', vehicleDetails: 'Toyota Innova 2020', customer: 'Vikram Mehta', assignedTo: 'Ravi Sharma', serviceType: 'Wheel Alignment', createdDate: '2023-09-21', estimatedCompletion: '2023-09-21', status: 'completed', estimatedCost: 1800 },
-];
+type NewJobCard = Omit<JobCard, 'id'>;
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -51,16 +38,109 @@ const getStatusColor = (status: string) => {
 
 const JobCards = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [jobCards] = useState<JobCard[]>(mockJobCards);
   const [isAddJobCardOpen, setIsAddJobCardOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
+  const [newJobCard, setNewJobCard] = useState<NewJobCard>({
+    vehicle_id: '',
+    customer_id: '',
+    issue_description: '',
+    assigned_staff: '',
+    status: 'pending',
+    start_date: null,
+    completion_date: null,
+    diagnosis: null
+  });
   
+  const queryClient = useQueryClient();
+
+  // Fetch job cards
+  const { data: jobCards = [], isLoading } = useQuery({
+    queryKey: ['jobCards'],
+    queryFn: getJobCards
+  });
+
+  // Fetch vehicles for dropdown
+  const { data: vehicles = [] } = useQuery({
+    queryKey: ['vehicles'],
+    queryFn: getVehicles
+  });
+
+  // Fetch customers for dropdown
+  const { data: customers = [] } = useQuery({
+    queryKey: ['customers'],
+    queryFn: getCustomers
+  });
+
+  // Fetch staff for dropdown
+  const { data: staffMembers = [] } = useQuery({
+    queryKey: ['staff'],
+    queryFn: getStaff
+  });
+
+  // Create job card mutation
+  const createJobCardMutation = useMutation({
+    mutationFn: createJobCard,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobCards'] });
+      setIsAddJobCardOpen(false);
+      toast.success('Job card created successfully');
+      resetJobCardForm();
+    },
+    onError: (error) => {
+      toast.error('Failed to create job card');
+      console.error(error);
+    }
+  });
+
+  // Update status mutation
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ jobCardId, status }: { jobCardId: string; status: string }) => 
+      updateJobCardStatus(jobCardId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobCards'] });
+      toast.success('Status updated successfully');
+    },
+    onError: (error) => {
+      console.error('Error updating status:', error);
+      toast.error('Failed to update status');
+    }
+  });
+
+  const handleCreateJobCard = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newJobCard.vehicle_id || !newJobCard.customer_id || !newJobCard.issue_description) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    
+    createJobCardMutation.mutate(newJobCard);
+  };
+
+  const resetJobCardForm = () => {
+    setNewJobCard({
+      vehicle_id: '',
+      customer_id: '',
+      issue_description: '',
+      assigned_staff: '',
+      status: 'pending',
+      start_date: null,
+      completion_date: null,
+      diagnosis: null
+    });
+  };
+
+  const handleStatusUpdate = (jobCardId: string, newStatus: string) => {
+    if (updateStatusMutation.isPending) return;
+    updateStatusMutation.mutate({ jobCardId, status: newStatus });
+  };
+
   const filteredJobCards = jobCards.filter(card => 
-    (activeTab === 'all' || card.status === activeTab.replace('-', '-')) &&
+    (activeTab === 'all' || card.status === activeTab) &&
     (card.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     card.vehicleReg.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     card.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     card.serviceType.toLowerCase().includes(searchTerm.toLowerCase()))
+     card.vehicles?.license_plate?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     card.customers?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     card.issue_description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
@@ -76,43 +156,49 @@ const JobCards = () => {
           </Button>
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search job cards..."
-              className="pl-8"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="in-progress">In Progress</TabsTrigger>
-              <TabsTrigger value="pending">Pending</TabsTrigger>
-              <TabsTrigger value="completed">Completed</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-        
-        <Card className="overflow-hidden border border-border/50 shadow-sm">
-          <CardContent className="p-0">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search job cards..."
+                  className="pl-8"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="in-progress">In Progress</TabsTrigger>
+                  <TabsTrigger value="pending">Pending</TabsTrigger>
+                  <TabsTrigger value="completed">Completed</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+            
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Job ID</TableHead>
                   <TableHead>Vehicle</TableHead>
                   <TableHead className="hidden md:table-cell">Customer</TableHead>
-                  <TableHead className="hidden lg:table-cell">Service</TableHead>
+                  <TableHead className="hidden lg:table-cell">Issue</TableHead>
                   <TableHead className="hidden sm:table-cell">Date</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-[60px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredJobCards.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
+                      Loading job cards...
+                    </TableCell>
+                  </TableRow>
+                ) : filteredJobCards.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
                       No job cards found
@@ -124,40 +210,44 @@ const JobCards = () => {
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-1">
                           <FileText className="h-4 w-4 text-primary" />
-                          <span>{card.id}</span>
+                          <span>{card.id.substring(0, 8).toUpperCase()}</span>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
                           <span className="flex items-center gap-1">
                             <Car className="h-3 w-3 text-muted-foreground" />
-                            {card.vehicleReg}
+                            {card.vehicles?.license_plate || 'N/A'}
                           </span>
-                          <span className="text-sm text-muted-foreground">{card.vehicleDetails}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {card.vehicles?.make} {card.vehicles?.model}
+                          </span>
                         </div>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
                         <div className="flex items-center gap-1">
                           <User className="h-3 w-3 text-muted-foreground" />
-                          <span>{card.customer}</span>
+                          <span>{card.customers?.name || 'N/A'}</span>
                         </div>
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
-                        {card.serviceType}
+                        {card.issue_description}
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
                         <div className="flex flex-col text-sm">
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3 w-3 text-muted-foreground" />
-                            {new Date(card.createdDate).toLocaleDateString('en-IN')}
+                            {new Date(card.created_at || '').toLocaleDateString('en-IN')}
                           </span>
-                          <span className="text-muted-foreground">
-                            Due: {new Date(card.estimatedCompletion).toLocaleDateString('en-IN')}
-                          </span>
+                          {card.completion_date && (
+                            <span className="text-muted-foreground">
+                              Completed: {new Date(card.completion_date).toLocaleDateString('en-IN')}
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className={`${getStatusColor(card.status)}`}>
+                        <Badge className={getStatusColor(card.status)}>
                           {card.status === 'in-progress' ? 'In Progress' : 
                            card.status.charAt(0).toUpperCase() + card.status.slice(1)}
                         </Badge>
@@ -171,9 +261,36 @@ const JobCards = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>View details</DropdownMenuItem>
-                            <DropdownMenuItem>Edit job card</DropdownMenuItem>
-                            <DropdownMenuItem>Update status</DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link to={`/vehicles/${card.vehicle_id}`}>View details</Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              onClick={() => handleStatusUpdate(card.id, 'pending')}
+                              disabled={card.status === 'pending'}
+                            >
+                              Set as Pending
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleStatusUpdate(card.id, 'in-progress')}
+                              disabled={card.status === 'in-progress'}
+                            >
+                              Set as In Progress
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleStatusUpdate(card.id, 'completed')}
+                              disabled={card.status === 'completed'}
+                            >
+                              Set as Completed
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleStatusUpdate(card.id, 'cancelled')}
+                              disabled={card.status === 'cancelled'}
+                              className="text-destructive"
+                            >
+                              Set as Cancelled
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem>Print job card</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -187,7 +304,10 @@ const JobCards = () => {
         </Card>
       </div>
       
-      <Dialog open={isAddJobCardOpen} onOpenChange={setIsAddJobCardOpen}>
+      <Dialog open={isAddJobCardOpen} onOpenChange={(open) => {
+        setIsAddJobCardOpen(open);
+        if (!open) resetJobCardForm();
+      }}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Create New Job Card</DialogTitle>
@@ -195,95 +315,90 @@ const JobCards = () => {
               Create a service job card for a vehicle
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="vehicle">Vehicle</Label>
-                <Select>
-                  <SelectTrigger id="vehicle">
-                    <SelectValue placeholder="Select vehicle" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">MH02AB1234 - Honda City</SelectItem>
-                    <SelectItem value="2">DL01CD5678 - Hyundai Creta</SelectItem>
-                    <SelectItem value="3">GJ05EF9012 - Maruti Swift</SelectItem>
-                  </SelectContent>
-                </Select>
+          <form onSubmit={handleCreateJobCard}>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="vehicle">Vehicle</Label>
+                  <Select
+                    value={newJobCard.vehicle_id}
+                    onValueChange={(value) => setNewJobCard({...newJobCard, vehicle_id: value})}
+                    required
+                  >
+                    <SelectTrigger id="vehicle">
+                      <SelectValue placeholder="Select vehicle" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vehicles.map((vehicle) => (
+                        <SelectItem key={vehicle.id} value={vehicle.id}>
+                          {vehicle.license_plate} - {vehicle.make} {vehicle.model}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="customer">Customer</Label>
+                  <Select
+                    value={newJobCard.customer_id}
+                    onValueChange={(value) => setNewJobCard({...newJobCard, customer_id: value})}
+                    required
+                  >
+                    <SelectTrigger id="customer">
+                      <SelectValue placeholder="Select customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customers.map((customer) => (
+                        <SelectItem key={customer.id} value={customer.id}>
+                          {customer.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="technician">Assign To</Label>
+                  <Select
+                    value={newJobCard.assigned_staff}
+                    onValueChange={(value) => setNewJobCard({...newJobCard, assigned_staff: value})}
+                  >
+                    <SelectTrigger id="technician">
+                      <SelectValue placeholder="Select technician" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {staffMembers.map((staff) => (
+                        <SelectItem key={staff.id} value={staff.id}>
+                          {staff.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
               <div className="space-y-2">
-                <Label htmlFor="customer">Customer</Label>
-                <Select>
-                  <SelectTrigger id="customer">
-                    <SelectValue placeholder="Select customer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">Rajesh Kumar</SelectItem>
-                    <SelectItem value="2">Priya Singh</SelectItem>
-                    <SelectItem value="3">Amit Patel</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="description">Issue Description</Label>
+                <Input 
+                  id="description" 
+                  placeholder="Describe the issue with the vehicle"
+                  value={newJobCard.issue_description}
+                  onChange={(e) => setNewJobCard({...newJobCard, issue_description: e.target.value})}
+                  required
+                />
               </div>
             </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="service-type">Service Type</Label>
-                <Select>
-                  <SelectTrigger id="service-type">
-                    <SelectValue placeholder="Select service type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="regular">Regular Maintenance</SelectItem>
-                    <SelectItem value="repair">Repair Work</SelectItem>
-                    <SelectItem value="inspection">Inspection</SelectItem>
-                    <SelectItem value="custom">Custom Service</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="technician">Assign To</Label>
-                <Select>
-                  <SelectTrigger id="technician">
-                    <SelectValue placeholder="Select technician" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="amit">Amit Kumar</SelectItem>
-                    <SelectItem value="suresh">Suresh Patel</SelectItem>
-                    <SelectItem value="dinesh">Dinesh Singh</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="description">Service Description</Label>
-              <Input id="description" placeholder="Describe the services to be performed" />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="estimated-cost">Estimated Cost (₹)</Label>
-                <Input id="estimated-cost" type="number" placeholder="0.00" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="estimated-completion">Estimated Completion</Label>
-                <Input id="estimated-completion" type="date" />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="notes">Additional Notes</Label>
-              <Input id="notes" placeholder="Any additional information or special instructions" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddJobCardOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" onClick={() => setIsAddJobCardOpen(false)}>
-              Create Job Card
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button variant="outline" type="button" onClick={() => setIsAddJobCardOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createJobCardMutation.isPending}>
+                {createJobCardMutation.isPending ? 'Creating...' : 'Create Job Card'}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </Layout>

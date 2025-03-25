@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/lib/toast";
 
@@ -21,13 +20,13 @@ export async function getVehicles() {
       .from('vehicles')
       .select(`
         *,
-        customers(id, name)
+        customers(id, name, phone, email)
       `)
       .order('make');
     
     if (error) throw error;
     
-    return data;
+    return data || [];
   } catch (error: any) {
     console.error('Error fetching vehicles:', error);
     toast.error('Failed to load vehicles');

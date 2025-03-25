@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -13,73 +12,12 @@ import { Badge } from '@/components/ui/badge';
 import { Search, Plus, MoreHorizontal, FileText, CreditCard, CalendarIcon, IndianRupee, Receipt, User, Car } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Link } from 'react-router-dom';
-
-interface Invoice {
-  id: string;
-  jobCardId: string;
-  customerName: string;
-  vehicleInfo: string;
-  amount: number;
-  date: string;
-  status: 'paid' | 'pending' | 'overdue';
-  services: { name: string; cost: number }[];
-  parts: { name: string; quantity: number; cost: number }[];
-}
-
-const mockInvoices: Invoice[] = [
-  {
-    id: 'INV-001',
-    jobCardId: 'JC230925',
-    customerName: 'Rajesh Kumar',
-    vehicleInfo: 'Honda City - MH02AB1234',
-    amount: 4500,
-    date: '2023-09-27',
-    status: 'paid',
-    services: [
-      { name: 'Oil Change', cost: 1200 },
-      { name: 'Air Filter Replacement', cost: 800 },
-      { name: 'Labor Charges', cost: 1000 }
-    ],
-    parts: [
-      { name: 'Engine Oil (4L)', quantity: 1, cost: 1200 },
-      { name: 'Air Filter', quantity: 1, cost: 500 }
-    ]
-  },
-  {
-    id: 'INV-002',
-    jobCardId: 'JC230924',
-    customerName: 'Priya Singh',
-    vehicleInfo: 'Hyundai Creta - DL01CD5678',
-    amount: 7800,
-    date: '2023-09-26',
-    status: 'pending',
-    services: [
-      { name: 'Brake Service', cost: 2500 },
-      { name: 'Wheel Alignment', cost: 1800 },
-      { name: 'Labor Charges', cost: 1500 }
-    ],
-    parts: [
-      { name: 'Brake Pads (Set)', quantity: 1, cost: 1500 },
-      { name: 'Brake Fluid', quantity: 1, cost: 500 }
-    ]
-  },
-  {
-    id: 'INV-003',
-    jobCardId: 'JC230922',
-    customerName: 'Amit Patel',
-    vehicleInfo: 'Maruti Swift - GJ05EF9012',
-    amount: 3200,
-    date: '2023-09-24',
-    status: 'overdue',
-    services: [
-      { name: 'AC Service', cost: 2000 },
-      { name: 'Labor Charges', cost: 800 }
-    ],
-    parts: [
-      { name: 'AC Gas Refill', quantity: 1, cost: 400 }
-    ]
-  }
-];
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getInvoices, getInvoiceById, updateInvoiceStatus, Invoice } from '@/services/billingService';
+import { getJobCards } from '@/services/jobCardService';
+import { getCustomers } from '@/services/customerService';
+import { getVehicles } from '@/services/vehicleService';
+import { AutoBillGenerator } from '@/components/AutoBillGenerator';
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -96,21 +34,97 @@ const getStatusColor = (status: string) => {
 
 const Billing = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [invoices] = useState<Invoice[]>(mockInvoices);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isCreateInvoiceOpen, setIsCreateInvoiceOpen] = useState(false);
+  const [selectedJobCard, setSelectedJobCard] = useState<string | null>(null);
   
+  const queryClient = useQueryClient();
+
+  // Fetch data from Supabase
+  const { data: invoices = [], isLoading: isLoadingInvoices } = useQuery({
+    queryKey: ['invoices'],
+    queryFn: getInvoices
+  });
+
+  const { data: jobCards = [], isLoading: isLoadingJobCards } = useQuery({
+    queryKey: ['jobCards'],
+    queryFn: getJobCards
+  });
+
+  const { data: customers = [], isLoading: isLoadingCustomers } = useQuery({
+    queryKey: ['customers'],
+    queryFn: getCustomers
+  });
+
+  const { data: vehicles = [], isLoading: isLoadingVehicles } = useQuery({
+    queryKey: ['vehicles'],
+    queryFn: getVehicles
+  });
+
+  // Mutations
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: Invoice['status'] }) => 
+      updateInvoiceStatus(id, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+    }
+  });
+
   const filteredInvoices = invoices.filter(invoice => 
     invoice.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    invoice.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    invoice.vehicleInfo.toLowerCase().includes(searchTerm.toLowerCase())
+    invoice.customer?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    `${invoice.vehicle?.make} ${invoice.vehicle?.model} - ${invoice.vehicle?.license_plate}`.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleViewInvoice = (invoice: Invoice) => {
-    setSelectedInvoice(invoice);
-    setIsInvoiceDialogOpen(true);
+  const handleViewInvoice = async (invoice: Invoice) => {
+    const fullInvoice = await getInvoiceById(invoice.id);
+    if (fullInvoice) {
+      setSelectedInvoice(fullInvoice);
+      setIsInvoiceDialogOpen(true);
+    }
   };
+
+  const handleStatusUpdate = async (invoiceId: string, newStatus: Invoice['status']) => {
+    await updateStatusMutation.mutateAsync({ id: invoiceId, status: newStatus });
+  };
+
+  const handleGenerateBill = (data: {
+    services: { name: string; cost: number }[];
+    parts: { name: string; quantity: number; cost: number }[];
+    total: number;
+    notes: string;
+  }) => {
+    // TODO: Implement invoice creation
+    setIsCreateInvoiceOpen(false);
+  };
+
+  const isLoading = isLoadingInvoices || isLoadingJobCards || isLoadingCustomers || isLoadingVehicles;
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight">Billing</h2>
+              <p className="text-muted-foreground">Loading billing data...</p>
+            </div>
+            <Button className="gap-2" disabled>
+              <Plus className="h-4 w-4" /> Create Invoice
+            </Button>
+          </div>
+          <Card className="animate-pulse">
+            <CardContent className="p-0">
+              <div className="h-96 flex items-center justify-center">
+                <p className="text-muted-foreground">Loading...</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -181,23 +195,23 @@ const Billing = () => {
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-col">
-                              <span>{invoice.customerName}</span>
-                              <span className="text-sm text-muted-foreground">Job Card: {invoice.jobCardId}</span>
+                              <span>{invoice.customer?.name}</span>
+                              <span className="text-sm text-muted-foreground">Job Card: {invoice.job_card_id}</span>
                             </div>
                           </TableCell>
                           <TableCell className="hidden md:table-cell">
-                            {invoice.vehicleInfo}
+                            {invoice.vehicle ? `${invoice.vehicle.make} ${invoice.vehicle.model} - ${invoice.vehicle.license_plate}` : 'N/A'}
                           </TableCell>
                           <TableCell className="hidden lg:table-cell">
                             <div className="flex items-center gap-1 text-muted-foreground">
                               <CalendarIcon className="h-3 w-3" />
-                              <span>{new Date(invoice.date).toLocaleDateString('en-IN')}</span>
+                              <span>{new Date(invoice.created_at).toLocaleDateString('en-IN')}</span>
                             </div>
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1 font-medium">
                               <IndianRupee className="h-3 w-3" />
-                              <span>{invoice.amount.toLocaleString('en-IN')}</span>
+                              <span>{invoice.grand_total.toLocaleString('en-IN')}</span>
                             </div>
                           </TableCell>
                           <TableCell>
@@ -218,7 +232,11 @@ const Billing = () => {
                                   View invoice
                                 </DropdownMenuItem>
                                 <DropdownMenuItem>Edit invoice</DropdownMenuItem>
-                                <DropdownMenuItem>Mark as paid</DropdownMenuItem>
+                                {invoice.status !== 'paid' && (
+                                  <DropdownMenuItem onClick={() => handleStatusUpdate(invoice.id, 'paid')}>
+                                    Mark as paid
+                                  </DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem>Send to customer</DropdownMenuItem>
                                 <DropdownMenuItem>Print invoice</DropdownMenuItem>
                               </DropdownMenuContent>
@@ -261,23 +279,23 @@ const Billing = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col">
-                            <span>{invoice.customerName}</span>
-                            <span className="text-sm text-muted-foreground">Job Card: {invoice.jobCardId}</span>
+                            <span>{invoice.customer?.name}</span>
+                            <span className="text-sm text-muted-foreground">Job Card: {invoice.job_card_id}</span>
                           </div>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
-                          {invoice.vehicleInfo}
+                          {invoice.vehicle ? `${invoice.vehicle.make} ${invoice.vehicle.model} - ${invoice.vehicle.license_plate}` : 'N/A'}
                         </TableCell>
                         <TableCell className="hidden lg:table-cell">
                           <div className="flex items-center gap-1 text-muted-foreground">
                             <CalendarIcon className="h-3 w-3" />
-                            <span>{new Date(invoice.date).toLocaleDateString('en-IN')}</span>
+                            <span>{new Date(invoice.created_at).toLocaleDateString('en-IN')}</span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1 font-medium">
                             <IndianRupee className="h-3 w-3" />
-                            <span>{invoice.amount.toLocaleString('en-IN')}</span>
+                            <span>{invoice.grand_total.toLocaleString('en-IN')}</span>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -338,23 +356,23 @@ const Billing = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col">
-                            <span>{invoice.customerName}</span>
-                            <span className="text-sm text-muted-foreground">Job Card: {invoice.jobCardId}</span>
+                            <span>{invoice.customer?.name}</span>
+                            <span className="text-sm text-muted-foreground">Job Card: {invoice.job_card_id}</span>
                           </div>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
-                          {invoice.vehicleInfo}
+                          {invoice.vehicle ? `${invoice.vehicle.make} ${invoice.vehicle.model} - ${invoice.vehicle.license_plate}` : 'N/A'}
                         </TableCell>
                         <TableCell className="hidden lg:table-cell">
                           <div className="flex items-center gap-1 text-muted-foreground">
                             <CalendarIcon className="h-3 w-3" />
-                            <span>{new Date(invoice.date).toLocaleDateString('en-IN')}</span>
+                            <span>{new Date(invoice.created_at).toLocaleDateString('en-IN')}</span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1 font-medium">
                             <IndianRupee className="h-3 w-3" />
-                            <span>{invoice.amount.toLocaleString('en-IN')}</span>
+                            <span>{invoice.grand_total.toLocaleString('en-IN')}</span>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -374,7 +392,9 @@ const Billing = () => {
                               <DropdownMenuItem onClick={() => handleViewInvoice(invoice)}>
                                 View invoice
                               </DropdownMenuItem>
-                              <DropdownMenuItem>Mark as paid</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleStatusUpdate(invoice.id, 'paid')}>
+                                Mark as paid
+                              </DropdownMenuItem>
                               <DropdownMenuItem>Send reminder</DropdownMenuItem>
                               <DropdownMenuItem>Edit invoice</DropdownMenuItem>
                             </DropdownMenuContent>
@@ -416,23 +436,23 @@ const Billing = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col">
-                            <span>{invoice.customerName}</span>
-                            <span className="text-sm text-muted-foreground">Job Card: {invoice.jobCardId}</span>
+                            <span>{invoice.customer?.name}</span>
+                            <span className="text-sm text-muted-foreground">Job Card: {invoice.job_card_id}</span>
                           </div>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
-                          {invoice.vehicleInfo}
+                          {invoice.vehicle ? `${invoice.vehicle.make} ${invoice.vehicle.model} - ${invoice.vehicle.license_plate}` : 'N/A'}
                         </TableCell>
                         <TableCell className="hidden lg:table-cell">
                           <div className="flex items-center gap-1 text-muted-foreground">
                             <CalendarIcon className="h-3 w-3" />
-                            <span>{new Date(invoice.date).toLocaleDateString('en-IN')}</span>
+                            <span>{new Date(invoice.created_at).toLocaleDateString('en-IN')}</span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1 font-medium">
                             <IndianRupee className="h-3 w-3" />
-                            <span>{invoice.amount.toLocaleString('en-IN')}</span>
+                            <span>{invoice.grand_total.toLocaleString('en-IN')}</span>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -452,7 +472,9 @@ const Billing = () => {
                               <DropdownMenuItem onClick={() => handleViewInvoice(invoice)}>
                                 View invoice
                               </DropdownMenuItem>
-                              <DropdownMenuItem>Mark as paid</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleStatusUpdate(invoice.id, 'paid')}>
+                                Mark as paid
+                              </DropdownMenuItem>
                               <DropdownMenuItem>Send urgent reminder</DropdownMenuItem>
                               <DropdownMenuItem>Edit invoice</DropdownMenuItem>
                             </DropdownMenuContent>
@@ -479,7 +501,7 @@ const Billing = () => {
                 </Badge>
               </DialogTitle>
               <DialogDescription>
-                Job Card: {selectedInvoice.jobCardId} | Date: {new Date(selectedInvoice.date).toLocaleDateString('en-IN')}
+                Job Card: {selectedInvoice.job_card_id} | Date: {new Date(selectedInvoice.created_at).toLocaleDateString('en-IN')}
               </DialogDescription>
             </DialogHeader>
             
@@ -492,9 +514,9 @@ const Billing = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="font-medium">{selectedInvoice.customerName}</p>
-                    <p className="text-sm text-muted-foreground">+91 98765 43210</p>
-                    <p className="text-sm text-muted-foreground mt-1">customer@example.com</p>
+                    <p className="font-medium">{selectedInvoice.customer?.name}</p>
+                    <p className="text-sm text-muted-foreground">{selectedInvoice.customer?.phone}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{selectedInvoice.customer?.email}</p>
                   </CardContent>
                 </Card>
                 
@@ -505,8 +527,10 @@ const Billing = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="font-medium">{selectedInvoice.vehicleInfo}</p>
-                    <p className="text-sm text-muted-foreground">Year: 2020</p>
+                    <p className="font-medium">
+                      {selectedInvoice.vehicle ? `${selectedInvoice.vehicle.make} ${selectedInvoice.vehicle.model} - ${selectedInvoice.vehicle.license_plate}` : 'N/A'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Year: {selectedInvoice.vehicle?.year}</p>
                   </CardContent>
                 </Card>
               </div>
@@ -530,6 +554,12 @@ const Billing = () => {
                           <TableCell className="text-right">{service.cost.toLocaleString('en-IN')}</TableCell>
                         </TableRow>
                       ))}
+                      <TableRow>
+                        <TableCell className="font-medium">Services Subtotal</TableCell>
+                        <TableCell className="text-right font-medium">
+                          {selectedInvoice.services.reduce((sum, service) => sum + service.cost, 0).toLocaleString('en-IN')}
+                        </TableCell>
+                      </TableRow>
                     </TableBody>
                   </Table>
                 </CardContent>
@@ -553,33 +583,51 @@ const Billing = () => {
                         <TableRow key={index}>
                           <TableCell>{part.name}</TableCell>
                           <TableCell>{part.quantity}</TableCell>
-                          <TableCell className="text-right">{part.cost.toLocaleString('en-IN')}</TableCell>
+                          <TableCell className="text-right">{(part.cost * part.quantity).toLocaleString('en-IN')}</TableCell>
                         </TableRow>
                       ))}
+                      <TableRow>
+                        <TableCell className="font-medium">Parts Subtotal</TableCell>
+                        <TableCell></TableCell>
+                        <TableCell className="text-right font-medium">
+                          {selectedInvoice.parts.reduce((sum, part) => sum + (part.cost * part.quantity), 0).toLocaleString('en-IN')}
+                        </TableCell>
+                      </TableRow>
                     </TableBody>
                   </Table>
                 </CardContent>
               </Card>
               
-              <div className="flex justify-between items-center p-4 bg-muted/30 rounded-lg">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Tax Amount</p>
+                  <p className="text-lg font-medium flex items-center">
+                    <IndianRupee className="h-4 w-4 mr-1" />
+                    {selectedInvoice.tax_amount.toLocaleString('en-IN')}
+                  </p>
+                </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Total Amount</p>
                   <p className="text-2xl font-bold flex items-center">
                     <IndianRupee className="h-4 w-4 mr-1" />
-                    {selectedInvoice.amount.toLocaleString('en-IN')}
+                    {selectedInvoice.grand_total.toLocaleString('en-IN')}
                   </p>
                 </div>
-                
-                <div className="space-x-2">
-                  {selectedInvoice.status !== 'paid' && (
-                    <Button className="gap-1" variant="default">
-                      <CreditCard className="h-4 w-4" /> Mark as Paid
-                    </Button>
-                  )}
-                  <Button className="gap-1" variant="outline">
-                    <Receipt className="h-4 w-4" /> Print Invoice
+              </div>
+              
+              <div className="space-x-2">
+                {selectedInvoice.status !== 'paid' && (
+                  <Button 
+                    className="gap-1" 
+                    variant="default"
+                    onClick={() => handleStatusUpdate(selectedInvoice.id, 'paid')}
+                  >
+                    <CreditCard className="h-4 w-4" /> Mark as Paid
                   </Button>
-                </div>
+                )}
+                <Button className="gap-1" variant="outline">
+                  <Receipt className="h-4 w-4" /> Print Invoice
+                </Button>
               </div>
             </div>
           </DialogContent>
@@ -598,14 +646,16 @@ const Billing = () => {
           <div className="grid gap-6 py-4">
             <div className="space-y-2">
               <Label htmlFor="job-card">Select Job Card (Optional)</Label>
-              <Select>
+              <Select value={selectedJobCard || ''} onValueChange={setSelectedJobCard}>
                 <SelectTrigger id="job-card">
                   <SelectValue placeholder="Select a job card" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="jc1">JC230925 - Honda City</SelectItem>
-                  <SelectItem value="jc2">JC230924 - Hyundai Creta</SelectItem>
-                  <SelectItem value="jc3">JC230922 - Maruti Swift</SelectItem>
+                  {jobCards.map(jobCard => (
+                    <SelectItem key={jobCard.id} value={jobCard.id}>
+                      {jobCard.id} - {jobCard.vehicles?.make} {jobCard.vehicles?.model}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <p className="text-sm text-muted-foreground">
@@ -613,87 +663,11 @@ const Billing = () => {
               </p>
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="customer">Customer</Label>
-                <Select>
-                  <SelectTrigger id="customer">
-                    <SelectValue placeholder="Select customer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="customer1">Rajesh Kumar</SelectItem>
-                    <SelectItem value="customer2">Priya Singh</SelectItem>
-                    <SelectItem value="customer3">Amit Patel</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="vehicle">Vehicle</Label>
-                <Select>
-                  <SelectTrigger id="vehicle">
-                    <SelectValue placeholder="Select vehicle" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="vehicle1">Honda City - MH02AB1234</SelectItem>
-                    <SelectItem value="vehicle2">Hyundai Creta - DL01CD5678</SelectItem>
-                    <SelectItem value="vehicle3">Maruti Swift - GJ05EF9012</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Services</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Input placeholder="Service description" className="w-[60%]" />
-                  <Input type="number" placeholder="Cost" className="w-[30%]" />
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                <Button variant="outline" size="sm" className="gap-1 w-full mt-2">
-                  <Plus className="h-4 w-4" /> Add Service
-                </Button>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Parts</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <Input placeholder="Part name" className="w-[50%]" />
-                  <Input type="number" placeholder="Qty" className="w-[15%]" />
-                  <Input type="number" placeholder="Cost" className="w-[25%]" />
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                <Button variant="outline" size="sm" className="gap-1 w-full mt-2">
-                  <Plus className="h-4 w-4" /> Add Part
-                </Button>
-              </CardContent>
-            </Card>
-            
-            <div className="space-y-2">
-              <Label htmlFor="notes">Additional Notes</Label>
-              <Input id="notes" placeholder="Any additional notes for the invoice" />
-            </div>
+            <AutoBillGenerator
+              jobCardId={selectedJobCard || undefined}
+              onGenerateBill={handleGenerateBill}
+            />
           </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateInvoiceOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" onClick={() => setIsCreateInvoiceOpen(false)}>
-              Generate Invoice
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </Layout>
