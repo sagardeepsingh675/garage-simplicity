@@ -28,6 +28,7 @@ export type Invoice = {
     id: string;
     issue_description: string;
     vehicles?: {
+      id: string;
       make: string;
       model: string;
       license_plate: string;
@@ -53,6 +54,7 @@ export async function getInvoices() {
           id,
           issue_description,
           vehicles (
+            id,
             make,
             model,
             license_plate,
@@ -70,12 +72,21 @@ export async function getInvoices() {
     console.log('Invoices fetched successfully:', invoices);
     
     // Transform the data to match the expected format
-    const formattedInvoices = invoices.map(invoice => ({
-      ...invoice,
-      vehicle_id: invoice.job_cards?.vehicles?.id || '',
-      services: invoice.services || [],
-      parts: invoice.parts || []
-    }));
+    const formattedInvoices = invoices.map(invoice => {
+      // Ensure status is one of the allowed values
+      let validStatus: 'paid' | 'pending' | 'overdue' = 'pending';
+      if (invoice.status === 'paid' || invoice.status === 'overdue') {
+        validStatus = invoice.status as 'paid' | 'overdue';
+      }
+      
+      return {
+        ...invoice,
+        vehicle_id: invoice.job_cards?.vehicles?.id || '',
+        services: invoice.services || [],
+        parts: invoice.parts || [],
+        status: validStatus
+      };
+    });
 
     return formattedInvoices;
   } catch (error) {
@@ -92,19 +103,26 @@ export async function getInvoiceById(id: string) {
       .select(`
         *,
         customers(name, phone, email),
-        job_cards(id, issue_description, vehicles(make, model, license_plate, year))
+        job_cards(id, issue_description, vehicles(id, make, model, license_plate, year))
       `)
       .eq('id', id)
       .single();
     
     if (error) throw error;
     
+    // Ensure status is one of the allowed values
+    let validStatus: 'paid' | 'pending' | 'overdue' = 'pending';
+    if (data.status === 'paid' || data.status === 'overdue') {
+      validStatus = data.status as 'paid' | 'overdue';
+    }
+    
     // Transform the data to match the expected format
     const formattedInvoice = {
       ...data,
       vehicle_id: data.job_cards?.vehicles?.id || '',
       services: data.services || [],
-      parts: data.parts || []
+      parts: data.parts || [],
+      status: validStatus
     };
     
     return formattedInvoice;
@@ -119,10 +137,21 @@ export async function createInvoice(invoice: Omit<Invoice, 'id' | 'created_at' |
   try {
     console.log('Creating invoice with data:', invoice);
     
+    // Ensure status is one of the allowed values
+    let validStatus: 'paid' | 'pending' | 'overdue' = 'pending';
+    if (invoice.status === 'paid' || invoice.status === 'overdue') {
+      validStatus = invoice.status;
+    }
+    
+    const invoiceToInsert = {
+      ...invoice,
+      status: validStatus
+    };
+    
     // First, insert the invoice
     const { data: insertedData, error: insertError } = await supabase
       .from('invoices')
-      .insert([invoice])
+      .insert([invoiceToInsert])
       .select()
       .single();
     
@@ -139,7 +168,7 @@ export async function createInvoice(invoice: Omit<Invoice, 'id' | 'created_at' |
       .select(`
         *,
         customers(name, phone, email),
-        job_cards(id, issue_description, vehicles(make, model, license_plate, year))
+        job_cards(id, issue_description, vehicles(id, make, model, license_plate, year))
       `)
       .eq('id', insertedData.id)
       .single();
@@ -149,12 +178,19 @@ export async function createInvoice(invoice: Omit<Invoice, 'id' | 'created_at' |
       throw fetchError;
     }
     
+    // Ensure status is one of the allowed values
+    validStatus = 'pending';
+    if (completeData.status === 'paid' || completeData.status === 'overdue') {
+      validStatus = completeData.status as 'paid' | 'overdue';
+    }
+    
     // Transform the data to match the expected format
     const formattedInvoice = {
       ...completeData,
       vehicle_id: completeData.job_cards?.vehicles?.id || '',
-      services: completeData.services || [],
-      parts: completeData.parts || []
+      services: invoice.services || [],
+      parts: invoice.parts || [],
+      status: validStatus
     };
     
     console.log('Complete invoice data:', formattedInvoice);
@@ -176,18 +212,25 @@ export async function updateInvoiceStatus(id: string, status: Invoice['status'])
       .select(`
         *,
         customers(name, phone, email),
-        job_cards(id, issue_description, vehicles(make, model, license_plate, year))
+        job_cards(id, issue_description, vehicles(id, make, model, license_plate, year))
       `)
       .single();
     
     if (error) throw error;
+    
+    // Ensure status is one of the allowed values
+    let validStatus: 'paid' | 'pending' | 'overdue' = 'pending';
+    if (data.status === 'paid' || data.status === 'overdue') {
+      validStatus = data.status as 'paid' | 'overdue';
+    }
     
     // Transform the data to match the expected format
     const formattedInvoice = {
       ...data,
       vehicle_id: data.job_cards?.vehicles?.id || '',
       services: data.services || [],
-      parts: data.parts || []
+      parts: data.parts || [],
+      status: validStatus
     };
     
     toast.success('Invoice status updated successfully');
@@ -201,6 +244,15 @@ export async function updateInvoiceStatus(id: string, status: Invoice['status'])
 
 export async function updateInvoice(id: string, updates: Partial<Invoice>) {
   try {
+    // Ensure status is one of the allowed values if it's being updated
+    if (updates.status) {
+      let validStatus: 'paid' | 'pending' | 'overdue' = 'pending';
+      if (updates.status === 'paid' || updates.status === 'overdue') {
+        validStatus = updates.status;
+      }
+      updates.status = validStatus;
+    }
+    
     const { data, error } = await supabase
       .from('invoices')
       .update(updates)
@@ -208,18 +260,25 @@ export async function updateInvoice(id: string, updates: Partial<Invoice>) {
       .select(`
         *,
         customers(name, phone, email),
-        job_cards(id, issue_description, vehicles(make, model, license_plate, year))
+        job_cards(id, issue_description, vehicles(id, make, model, license_plate, year))
       `)
       .single();
     
     if (error) throw error;
     
+    // Ensure status is one of the allowed values
+    let validStatus: 'paid' | 'pending' | 'overdue' = 'pending';
+    if (data.status === 'paid' || data.status === 'overdue') {
+      validStatus = data.status as 'paid' | 'overdue';
+    }
+    
     // Transform the data to match the expected format
     const formattedInvoice = {
       ...data,
       vehicle_id: data.job_cards?.vehicles?.id || '',
-      services: data.services || [],
-      parts: data.parts || []
+      services: updates.services || [],
+      parts: updates.parts || [],
+      status: validStatus
     };
     
     toast.success('Invoice updated successfully');
