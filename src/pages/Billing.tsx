@@ -14,7 +14,7 @@ import { Search, Plus, MoreHorizontal, FileText, CreditCard, CalendarIcon, India
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getInvoices, getInvoiceById, updateInvoiceStatus, createInvoice, Invoice } from '@/services/billingService';
+import { getInvoices, getInvoiceById, updateInvoiceStatus, createInvoice, Invoice } from '@/services/billing';
 import { getJobCards, getJobCardById } from '@/services/jobCardService';
 import { getCustomers } from '@/services/customerService';
 import { getVehicles } from '@/services/vehicleService';
