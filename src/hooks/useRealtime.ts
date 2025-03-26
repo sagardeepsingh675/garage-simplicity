@@ -29,9 +29,8 @@ export function useRealtime({
     // Create a channel with a specific name related to the table
     const channel = supabase
       .channel(`${table}-changes`)
-      // Subscribe to the channel and define the callback for Postgres changes
       .on(
-        'postgres_changes', 
+        'postgres_changes',
         { 
           event,
           schema,
