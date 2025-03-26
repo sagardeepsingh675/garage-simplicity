@@ -8,14 +8,15 @@ import { useLocation, Link } from 'react-router-dom';
 
 interface LayoutProps {
   children: React.ReactNode;
+  className?: string;
 }
 
-export function Layout({ children }: LayoutProps) {
+export function Layout({ children, className }: LayoutProps) {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const menuItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: Users, label: 'Customers', path: '/customers' },
     { icon: Car, label: 'Vehicles', path: '/vehicles' },
     { icon: User, label: 'Staff', path: '/staff' },
@@ -25,14 +26,14 @@ export function Layout({ children }: LayoutProps) {
   ];
 
   const isActive = (path: string) => {
-    if (path === '/' && location.pathname === '/') return true;
-    if (path !== '/' && location.pathname.startsWith(path)) return true;
+    if (path === '/dashboard' && location.pathname === '/dashboard') return true;
+    if (path !== '/dashboard' && location.pathname.startsWith(path)) return true;
     return false;
   };
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full">
+      <div className={cn("flex min-h-screen w-full", className)}>
         <Sidebar className="border-r border-border/40">
           <div className="py-4 px-2">
             <div className="flex items-center justify-center py-2 mb-6">

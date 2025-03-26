@@ -1,12 +1,14 @@
 
-import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { LogOut, User } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
+import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import { SidebarTrigger } from '@/components/ui/sidebar';
+import { cn } from '@/lib/utils';
+import { LogOut, Search, Bell, User } from 'lucide-react';
 
-export function Navbar() {
-  const { user, signOut } = useAuth();
+export function Navbar({ className }: { className?: string }) {
+  const { signOut } = useAuth();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -15,31 +17,31 @@ export function Navbar() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background">
-      <div className="container flex h-16 items-center">
-        <div className="flex-1">
-          <a href="/" className="text-xl font-bold tracking-tight">
-            Garage Management
-          </a>
+    <header className={cn("sticky top-0 z-30 flex items-center justify-between px-4 h-16 border-b", className)}>
+      <div className="flex items-center">
+        <SidebarTrigger className="lg:hidden mr-2" />
+        <div className="relative max-w-md">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <input
+            type="search"
+            placeholder="Search..."
+            className="rounded-md border border-input bg-background pl-8 pr-4 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 w-[200px] sm:w-[300px]"
+          />
         </div>
-        <div className="flex-shrink-0">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full h-9 w-9">
-                <User className="h-5 w-5" />
-                <span className="sr-only">User menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut}>
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Sign out</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+      </div>
+      <div className="flex items-center gap-4">
+        <Link to="/" className="text-muted-foreground hover:text-foreground font-medium text-sm hidden md:block">
+          Visit Public Site
+        </Link>
+        <Button variant="ghost" size="icon">
+          <Bell className="h-5 w-5" />
+        </Button>
+        <Button variant="ghost" size="icon">
+          <User className="h-5 w-5" />
+        </Button>
+        <Button variant="ghost" size="icon" onClick={handleSignOut}>
+          <LogOut className="h-5 w-5" />
+        </Button>
       </div>
     </header>
   );

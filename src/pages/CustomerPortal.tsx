@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Car, CheckCircle2, Clock, File, FileText, IndianRupee, Package, Search, Wrench } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
+import { PublicLayout } from '@/components/PublicLayout';
 
 type VehicleStatus = {
   id: string;
@@ -31,6 +32,7 @@ const CustomerPortal = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [vehicles, setVehicles] = useState<VehicleStatus[]>([]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [customerId, setCustomerId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('vehicles');
   const navigate = useNavigate();
 
@@ -56,6 +58,8 @@ const CustomerPortal = () => {
         setIsLoading(false);
         return;
       }
+
+      setCustomerId(customers.id);
 
       // Then, find the vehicle by license plate and customer ID
       const { data: vehicleData, error: vehicleError } = await supabase
@@ -105,6 +109,67 @@ const CustomerPortal = () => {
     }
   };
 
+  // Set up real-time subscription when customer is logged in
+  useEffect(() => {
+    if (!customerId) return;
+    
+    // Set up real-time subscription for job cards
+    const jobCardsChannel = supabase
+      .channel('job-cards-changes')
+      .on('postgres_changes', 
+        {
+          event: '*',
+          schema: 'public',
+          table: 'job_cards',
+          filter: `customer_id=eq.${customerId}`
+        }, 
+        (payload) => {
+          console.log('Job card update received:', payload);
+          // Refresh vehicle data when job cards are updated
+          if (vehicles.length > 0) {
+            refreshVehicleData(vehicles[0].id);
+          }
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(jobCardsChannel);
+    };
+  }, [customerId, vehicles]);
+
+  const refreshVehicleData = async (vehicleId: string) => {
+    try {
+      // Get updated job cards for this vehicle
+      const { data: jobCards, error: jobCardsError } = await supabase
+        .from('job_cards')
+        .select('id, status, issue_description, diagnosis, created_at')
+        .eq('vehicle_id', vehicleId)
+        .order('created_at', { ascending: false });
+
+      if (jobCardsError) {
+        console.error('Error fetching job cards:', jobCardsError);
+        return;
+      }
+
+      // Update vehicle state with the latest information
+      setVehicles(vehicles.map(vehicle => 
+        vehicle.id === vehicleId ? {
+          ...vehicle,
+          status: jobCards && jobCards.length > 0 ? jobCards[0].status : 'No recent service',
+          job_card_id: jobCards && jobCards.length > 0 ? jobCards[0].id : undefined,
+          issue_description: jobCards && jobCards.length > 0 ? jobCards[0].issue_description : undefined,
+          diagnosis: jobCards && jobCards.length > 0 ? jobCards[0].diagnosis : undefined,
+          created_at: jobCards && jobCards.length > 0 ? jobCards[0].created_at : undefined,
+        } : vehicle
+      ));
+
+      toast.success('Vehicle information updated in real-time');
+    } catch (error) {
+      console.error('Error refreshing vehicle data:', error);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch(status.toLowerCase()) {
       case 'completed':
@@ -125,49 +190,12 @@ const CustomerPortal = () => {
     setVehicles([]);
     setEmail('');
     setLicensePlate('');
+    setCustomerId(null);
     toast.success('You have been logged out successfully');
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Navigation Bar */}
-      <header className="border-b bg-background">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <Link to="/">
-              <span className="font-bold text-2xl bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">GarageHub</span>
-            </Link>
-          </div>
-          
-          <NavigationMenu>
-            <NavigationMenuList className="hidden md:flex gap-6">
-              <NavigationMenuItem>
-                <Link to="/" className="text-foreground font-medium">Home</Link>
-              </NavigationMenuItem>
-              <NavigationMenuItem>
-                <Link to="/information" className="text-foreground font-medium">About Us</Link>
-              </NavigationMenuItem>
-              <NavigationMenuItem>
-                <Link to="/contact" className="text-foreground font-medium">Contact</Link>
-              </NavigationMenuItem>
-              <NavigationMenuItem>
-                <Link to="/customer-portal" className="text-foreground font-medium">Customer Portal</Link>
-              </NavigationMenuItem>
-            </NavigationMenuList>
-          </NavigationMenu>
-          
-          <div className="flex gap-3">
-            {isLoggedIn ? (
-              <Button variant="outline" onClick={handleLogout}>Logout</Button>
-            ) : (
-              <Button asChild>
-                <Link to="/auth">Staff Login</Link>
-              </Button>
-            )}
-          </div>
-        </div>
-      </header>
-
+    <PublicLayout>
       <div className="flex-1 container mx-auto px-4 py-12">
         {!isLoggedIn ? (
           <div className="max-w-md mx-auto">
@@ -234,7 +262,10 @@ const CustomerPortal = () => {
               <TabsContent value="vehicles">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {vehicles.map((vehicle) => (
-                    <Card key={vehicle.id}>
+                    <Card key={vehicle.id} className="relative overflow-hidden">
+                      {vehicle.status.toLowerCase() === 'in_progress' && (
+                        <div className="absolute top-0 right-0 animate-pulse bg-warning/20 w-full h-full pointer-events-none"></div>
+                      )}
                       <CardHeader>
                         <div className="flex justify-between items-start">
                           <div>
@@ -412,45 +443,7 @@ const CustomerPortal = () => {
           </div>
         )}
       </div>
-
-      {/* Footer */}
-      <footer className="bg-background border-t mt-auto py-12">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between gap-8">
-            <div className="md:w-1/3">
-              <h3 className="font-bold text-xl mb-4 bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">GarageHub</h3>
-              <p className="text-muted-foreground">
-                Professional automotive services with transparent pricing and superior customer service.
-              </p>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold mb-4">Quick Links</h4>
-              <ul className="space-y-2">
-                <li><Link to="/" className="text-muted-foreground hover:text-foreground">Home</Link></li>
-                <li><Link to="/information" className="text-muted-foreground hover:text-foreground">About Us</Link></li>
-                <li><Link to="/contact" className="text-muted-foreground hover:text-foreground">Contact</Link></li>
-                <li><Link to="/customer-portal" className="text-muted-foreground hover:text-foreground">Customer Portal</Link></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold mb-4">Contact Us</h4>
-              <address className="not-italic text-muted-foreground">
-                <p>123 Garage Street</p>
-                <p>Automotive City, AC 12345</p>
-                <p className="mt-2">info@garagehub.com</p>
-                <p>+1 (555) 123-4567</p>
-              </address>
-            </div>
-          </div>
-          
-          <div className="border-t mt-8 pt-8 text-center text-muted-foreground">
-            <p>&copy; {new Date().getFullYear()} GarageHub. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
-    </div>
+    </PublicLayout>
   );
 };
 

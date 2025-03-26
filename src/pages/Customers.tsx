@@ -1,5 +1,5 @@
-
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { AdminLayout } from '@/components/AdminLayout';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -26,13 +26,11 @@ const Customers = () => {
   
   const queryClient = useQueryClient();
   
-  // Fetch customers
   const { data: customers = [], isLoading } = useQuery({
     queryKey: ['customers'],
     queryFn: getCustomers
   });
   
-  // Create customer mutation
   const createCustomerMutation = useMutation({
     mutationFn: createCustomer,
     onSuccess: () => {
@@ -67,7 +65,7 @@ const Customers = () => {
   );
 
   return (
-    <Layout>
+    <AdminLayout>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -266,7 +264,7 @@ const Customers = () => {
           </form>
         </DialogContent>
       </Dialog>
-    </Layout>
+    </AdminLayout>
   );
 };
 

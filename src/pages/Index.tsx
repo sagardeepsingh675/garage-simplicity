@@ -1,13 +1,13 @@
 
 import React from 'react';
-import { Layout } from '@/components/Layout';
+import { AdminLayout } from '@/components/AdminLayout';
 import { Dashboard } from '@/components/Dashboard';
 
 const Index = () => {
   return (
-    <Layout>
+    <AdminLayout>
       <Dashboard />
-    </Layout>
+    </AdminLayout>
   );
 };
 
