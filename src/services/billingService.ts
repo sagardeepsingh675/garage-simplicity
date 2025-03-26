@@ -19,20 +19,20 @@ export type Invoice = {
   notes?: string;
   services: { name: string; cost: number }[];
   parts: { name: string; quantity: number; cost: number }[];
-  customer?: {
+  customers?: {
     name: string;
     phone: string;
     email: string;
   };
-  vehicle?: {
-    make: string;
-    model: string;
-    license_plate: string;
-    year: number;
-  };
-  job_card?: {
+  job_cards?: {
     id: string;
     issue_description: string;
+    vehicles?: {
+      make: string;
+      model: string;
+      license_plate: string;
+      year: number;
+    }
   };
 }
 
@@ -72,7 +72,7 @@ export async function getInvoices() {
     // Transform the data to match the expected format
     const formattedInvoices = invoices.map(invoice => ({
       ...invoice,
-      vehicle: invoice.job_cards?.vehicles,
+      vehicle_id: invoice.job_cards?.vehicles?.id || '',
       services: invoice.services || [],
       parts: invoice.parts || []
     }));
@@ -102,7 +102,7 @@ export async function getInvoiceById(id: string) {
     // Transform the data to match the expected format
     const formattedInvoice = {
       ...data,
-      vehicle: data.job_cards?.vehicles,
+      vehicle_id: data.job_cards?.vehicles?.id || '',
       services: data.services || [],
       parts: data.parts || []
     };
@@ -152,7 +152,7 @@ export async function createInvoice(invoice: Omit<Invoice, 'id' | 'created_at' |
     // Transform the data to match the expected format
     const formattedInvoice = {
       ...completeData,
-      vehicle: completeData.job_cards?.vehicles,
+      vehicle_id: completeData.job_cards?.vehicles?.id || '',
       services: completeData.services || [],
       parts: completeData.parts || []
     };
@@ -185,7 +185,7 @@ export async function updateInvoiceStatus(id: string, status: Invoice['status'])
     // Transform the data to match the expected format
     const formattedInvoice = {
       ...data,
-      vehicle: data.job_cards?.vehicles,
+      vehicle_id: data.job_cards?.vehicles?.id || '',
       services: data.services || [],
       parts: data.parts || []
     };
@@ -217,7 +217,7 @@ export async function updateInvoice(id: string, updates: Partial<Invoice>) {
     // Transform the data to match the expected format
     const formattedInvoice = {
       ...data,
-      vehicle: data.job_cards?.vehicles,
+      vehicle_id: data.job_cards?.vehicles?.id || '',
       services: data.services || [],
       parts: data.parts || []
     };

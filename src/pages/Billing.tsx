@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -105,16 +106,16 @@ const Billing = () => {
 
   const filteredInvoices = invoices.filter(invoice => 
     invoice.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (invoice.customer?.name && invoice.customer.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (invoice.vehicle && 
-      `${invoice.vehicle.make} ${invoice.vehicle.model} ${invoice.vehicle.license_plate || ''}`.toLowerCase().includes(searchTerm.toLowerCase()))
+    (invoice.customers?.name && invoice.customers.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (invoice.job_cards?.vehicles && 
+      `${invoice.job_cards.vehicles.make} ${invoice.job_cards.vehicles.model} ${invoice.job_cards.vehicles.license_plate || ''}`.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const handleViewInvoice = async (invoice: Invoice) => {
     try {
       const fullInvoice = await getInvoiceById(invoice.id);
       if (fullInvoice) {
-        setSelectedInvoice(fullInvoice);
+        setSelectedInvoice(fullInvoice as Invoice);
         setIsInvoiceDialogOpen(true);
       }
     } catch (error) {
@@ -260,13 +261,13 @@ const Billing = () => {
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-col">
-                              <span>{invoice.customer?.name || 'N/A'}</span>
+                              <span>{invoice.customers?.name || 'N/A'}</span>
                               <span className="text-sm text-muted-foreground">Job Card: {invoice.job_card_id}</span>
                             </div>
                           </TableCell>
                           <TableCell className="hidden md:table-cell">
-                            {invoice.vehicle ? 
-                              `${invoice.vehicle.make} ${invoice.vehicle.model} ${invoice.vehicle.license_plate ? `- ${invoice.vehicle.license_plate}` : ''}` 
+                            {invoice.job_cards?.vehicles ? 
+                              `${invoice.job_cards.vehicles.make} ${invoice.job_cards.vehicles.model} ${invoice.job_cards.vehicles.license_plate ? `- ${invoice.job_cards.vehicles.license_plate}` : ''}` 
                               : 'N/A'}
                           </TableCell>
                           <TableCell className="hidden lg:table-cell">
@@ -346,12 +347,12 @@ const Billing = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col">
-                            <span>{invoice.customer?.name || 'N/A'}</span>
+                            <span>{invoice.customers?.name || 'N/A'}</span>
                             <span className="text-sm text-muted-foreground">Job Card: {invoice.job_card_id}</span>
                           </div>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
-                          {invoice.vehicle ? `${invoice.vehicle.make} ${invoice.vehicle.model} - ${invoice.vehicle.license_plate}` : 'N/A'}
+                          {invoice.job_cards?.vehicles ? `${invoice.job_cards.vehicles.make} ${invoice.job_cards.vehicles.model} - ${invoice.job_cards.vehicles.license_plate}` : 'N/A'}
                         </TableCell>
                         <TableCell className="hidden lg:table-cell">
                           <div className="flex items-center gap-1 text-muted-foreground">
@@ -423,12 +424,12 @@ const Billing = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col">
-                            <span>{invoice.customer?.name || 'N/A'}</span>
+                            <span>{invoice.customers?.name || 'N/A'}</span>
                             <span className="text-sm text-muted-foreground">Job Card: {invoice.job_card_id}</span>
                           </div>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
-                          {invoice.vehicle ? `${invoice.vehicle.make} ${invoice.vehicle.model} - ${invoice.vehicle.license_plate}` : 'N/A'}
+                          {invoice.job_cards?.vehicles ? `${invoice.job_cards.vehicles.make} ${invoice.job_cards.vehicles.model} - ${invoice.job_cards.vehicles.license_plate}` : 'N/A'}
                         </TableCell>
                         <TableCell className="hidden lg:table-cell">
                           <div className="flex items-center gap-1 text-muted-foreground">
@@ -503,12 +504,12 @@ const Billing = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-col">
-                            <span>{invoice.customer?.name || 'N/A'}</span>
+                            <span>{invoice.customers?.name || 'N/A'}</span>
                             <span className="text-sm text-muted-foreground">Job Card: {invoice.job_card_id}</span>
                           </div>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
-                          {invoice.vehicle ? `${invoice.vehicle.make} ${invoice.vehicle.model} - ${invoice.vehicle.license_plate}` : 'N/A'}
+                          {invoice.job_cards?.vehicles ? `${invoice.job_cards.vehicles.make} ${invoice.job_cards.vehicles.model} - ${invoice.job_cards.vehicles.license_plate}` : 'N/A'}
                         </TableCell>
                         <TableCell className="hidden lg:table-cell">
                           <div className="flex items-center gap-1 text-muted-foreground">
@@ -581,9 +582,9 @@ const Billing = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="font-medium">{selectedInvoice.customer?.name || 'N/A'}</p>
-                    <p className="text-sm text-muted-foreground">{selectedInvoice.customer?.phone || 'No phone'}</p>
-                    <p className="text-sm text-muted-foreground mt-1">{selectedInvoice.customer?.email || 'No email'}</p>
+                    <p className="font-medium">{selectedInvoice.customers?.name || 'N/A'}</p>
+                    <p className="text-sm text-muted-foreground">{selectedInvoice.customers?.phone || 'No phone'}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{selectedInvoice.customers?.email || 'No email'}</p>
                   </CardContent>
                 </Card>
                 
@@ -595,11 +596,11 @@ const Billing = () => {
                   </CardHeader>
                   <CardContent>
                     <p className="font-medium">
-                      {selectedInvoice.vehicle ? 
-                        `${selectedInvoice.vehicle.make} ${selectedInvoice.vehicle.model} ${selectedInvoice.vehicle.license_plate ? `- ${selectedInvoice.vehicle.license_plate}` : ''}` 
+                      {selectedInvoice.job_cards?.vehicles ? 
+                        `${selectedInvoice.job_cards.vehicles.make} ${selectedInvoice.job_cards.vehicles.model} ${selectedInvoice.job_cards.vehicles.license_plate ? `- ${selectedInvoice.job_cards.vehicles.license_plate}` : ''}` 
                         : 'N/A'}
                     </p>
-                    <p className="text-sm text-muted-foreground">Year: {selectedInvoice.vehicle?.year || 'N/A'}</p>
+                    <p className="text-sm text-muted-foreground">Year: {selectedInvoice.job_cards?.vehicles?.year || 'N/A'}</p>
                   </CardContent>
                 </Card>
               </div>
