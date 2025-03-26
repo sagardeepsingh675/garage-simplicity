@@ -13,11 +13,24 @@ export function formatInvoiceData(invoice: SupabaseInvoice): Invoice {
   
   // Transform the data to match the expected format
   return {
-    ...invoice,
+    id: invoice.id || '',
+    customer_id: invoice.customer_id || '',
     vehicle_id: invoice.job_cards?.vehicles?.id || '',
+    job_card_id: invoice.job_card_id || '',
+    total_amount: invoice.total_amount || 0,
+    tax_amount: invoice.tax_amount || 0,
+    grand_total: invoice.grand_total || 0,
+    status: validStatus,
+    created_at: invoice.created_at || new Date().toISOString(),
+    updated_at: invoice.updated_at || new Date().toISOString(),
+    due_date: invoice.due_date || new Date().toISOString(),
+    payment_date: invoice.payment_date,
+    payment_method: invoice.payment_method,
+    notes: invoice.notes,
     services: invoice.services || [],
     parts: invoice.parts || [],
-    status: validStatus
+    customers: invoice.customers,
+    job_cards: invoice.job_cards
   };
 }
 
