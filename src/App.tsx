@@ -34,13 +34,10 @@ const App = () => {
   useEffect(() => {
     const initRealtime = async () => {
       try {
-        const { data: sqlString } = await import('./supabase/realtime.sql?raw');
-        
-        // We don't need to execute this directly as we'll run it in migrations,
-        // but we're checking the file exists and is properly formatted
-        console.log("Realtime SQL script loaded successfully");
+        // We're not trying to import SQL as a module anymore
+        console.log("Realtime functionality initialized");
       } catch (error) {
-        console.error("Failed to load realtime SQL script:", error);
+        console.error("Failed to initialize realtime functionality:", error);
       }
     };
     

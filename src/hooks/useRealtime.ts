@@ -28,7 +28,8 @@ export function useRealtime({
   useEffect(() => {
     const channel = supabase
       .channel(`${table}-changes`)
-      .on('postgres_changes', 
+      .on(
+        'postgres_changes', 
         {
           event,
           schema,
