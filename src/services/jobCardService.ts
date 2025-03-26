@@ -66,9 +66,22 @@ export async function getJobCardById(id: string) {
       .from('job_cards')
       .select(`
         *,
-        vehicles(id, make, model, license_plate),
-        customers(id, name, phone, email),
-        staff(id, name)
+        customers (
+          name,
+          phone,
+          email
+        ),
+        vehicles (
+          make,
+          model,
+          license_plate,
+          year,
+          color
+        ),
+        staff (
+          name,
+          role
+        )
       `)
       .eq('id', id)
       .single();
@@ -204,4 +217,4 @@ export async function updateJobCardStatus(jobCardId: string, status: string) {
     toast.error('Failed to update job card status');
     return null;
   }
-} 
+}

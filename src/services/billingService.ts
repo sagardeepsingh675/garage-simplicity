@@ -1,7 +1,8 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/lib/toast";
 
-type DatabaseInvoice = {
+export type Invoice = {
   id: string;
   customer_id: string;
   vehicle_id: string;
@@ -16,6 +17,23 @@ type DatabaseInvoice = {
   payment_date?: string;
   payment_method?: string;
   notes?: string;
+  services: { name: string; cost: number }[];
+  parts: { name: string; quantity: number; cost: number }[];
+  customer?: {
+    name: string;
+    phone: string;
+    email: string;
+  };
+  vehicle?: {
+    make: string;
+    model: string;
+    license_plate: string;
+    year: number;
+  };
+  job_card?: {
+    id: string;
+    issue_description: string;
+  };
 }
 
 export async function getInvoices() {
@@ -50,7 +68,16 @@ export async function getInvoices() {
     }
 
     console.log('Invoices fetched successfully:', invoices);
-    return invoices;
+    
+    // Transform the data to match the expected format
+    const formattedInvoices = invoices.map(invoice => ({
+      ...invoice,
+      vehicle: invoice.job_cards?.vehicles,
+      services: invoice.services || [],
+      parts: invoice.parts || []
+    }));
+
+    return formattedInvoices;
   } catch (error) {
     console.error('Error fetching invoices:', error);
     toast.error('Failed to fetch invoices');
@@ -65,15 +92,22 @@ export async function getInvoiceById(id: string) {
       .select(`
         *,
         customers(name, phone, email),
-        vehicles(make, model, license_plate, year),
-        job_cards(id, issue_description)
+        job_cards(id, issue_description, vehicles(make, model, license_plate, year))
       `)
       .eq('id', id)
       .single();
     
     if (error) throw error;
     
-    return data;
+    // Transform the data to match the expected format
+    const formattedInvoice = {
+      ...data,
+      vehicle: data.job_cards?.vehicles,
+      services: data.services || [],
+      parts: data.parts || []
+    };
+    
+    return formattedInvoice;
   } catch (error: any) {
     console.error('Error fetching invoice:', error);
     toast.error('Failed to load invoice details');
@@ -81,7 +115,7 @@ export async function getInvoiceById(id: string) {
   }
 }
 
-export async function createInvoice(invoice: Omit<DatabaseInvoice, 'id' | 'created_at' | 'updated_at'>) {
+export async function createInvoice(invoice: Omit<Invoice, 'id' | 'created_at' | 'updated_at'>) {
   try {
     console.log('Creating invoice with data:', invoice);
     
@@ -105,8 +139,7 @@ export async function createInvoice(invoice: Omit<DatabaseInvoice, 'id' | 'creat
       .select(`
         *,
         customers(name, phone, email),
-        vehicles(make, model, license_plate, year),
-        job_cards(id, issue_description)
+        job_cards(id, issue_description, vehicles(make, model, license_plate, year))
       `)
       .eq('id', insertedData.id)
       .single();
@@ -116,9 +149,17 @@ export async function createInvoice(invoice: Omit<DatabaseInvoice, 'id' | 'creat
       throw fetchError;
     }
     
-    console.log('Complete invoice data:', completeData);
+    // Transform the data to match the expected format
+    const formattedInvoice = {
+      ...completeData,
+      vehicle: completeData.job_cards?.vehicles,
+      services: completeData.services || [],
+      parts: completeData.parts || []
+    };
+    
+    console.log('Complete invoice data:', formattedInvoice);
     toast.success('Invoice created successfully');
-    return completeData;
+    return formattedInvoice;
   } catch (error: any) {
     console.error('Error in createInvoice:', error);
     toast.error('Failed to create invoice');
@@ -126,7 +167,7 @@ export async function createInvoice(invoice: Omit<DatabaseInvoice, 'id' | 'creat
   }
 }
 
-export async function updateInvoiceStatus(id: string, status: DatabaseInvoice['status']) {
+export async function updateInvoiceStatus(id: string, status: Invoice['status']) {
   try {
     const { data, error } = await supabase
       .from('invoices')
@@ -135,15 +176,22 @@ export async function updateInvoiceStatus(id: string, status: DatabaseInvoice['s
       .select(`
         *,
         customers(name, phone, email),
-        vehicles(make, model, license_plate, year),
-        job_cards(id, issue_description)
+        job_cards(id, issue_description, vehicles(make, model, license_plate, year))
       `)
       .single();
     
     if (error) throw error;
     
+    // Transform the data to match the expected format
+    const formattedInvoice = {
+      ...data,
+      vehicle: data.job_cards?.vehicles,
+      services: data.services || [],
+      parts: data.parts || []
+    };
+    
     toast.success('Invoice status updated successfully');
-    return data;
+    return formattedInvoice;
   } catch (error: any) {
     console.error('Error updating invoice status:', error);
     toast.error('Failed to update invoice status');
@@ -151,7 +199,7 @@ export async function updateInvoiceStatus(id: string, status: DatabaseInvoice['s
   }
 }
 
-export async function updateInvoice(id: string, updates: Partial<DatabaseInvoice>) {
+export async function updateInvoice(id: string, updates: Partial<Invoice>) {
   try {
     const { data, error } = await supabase
       .from('invoices')
@@ -160,15 +208,22 @@ export async function updateInvoice(id: string, updates: Partial<DatabaseInvoice
       .select(`
         *,
         customers(name, phone, email),
-        vehicles(make, model, license_plate, year),
-        job_cards(id, issue_description)
+        job_cards(id, issue_description, vehicles(make, model, license_plate, year))
       `)
       .single();
     
     if (error) throw error;
     
+    // Transform the data to match the expected format
+    const formattedInvoice = {
+      ...data,
+      vehicle: data.job_cards?.vehicles,
+      services: data.services || [],
+      parts: data.parts || []
+    };
+    
     toast.success('Invoice updated successfully');
-    return data;
+    return formattedInvoice;
   } catch (error: any) {
     console.error('Error updating invoice:', error);
     toast.error('Failed to update invoice');
@@ -192,4 +247,4 @@ export async function deleteInvoice(id: string) {
     toast.error('Failed to delete invoice');
     return false;
   }
-} 
+}
