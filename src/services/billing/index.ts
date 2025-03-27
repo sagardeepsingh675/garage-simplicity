@@ -39,6 +39,7 @@ export async function createInvoice(invoice: Omit<Invoice, 'id' | 'created_at' |
     
     // Validate that status is one of the allowed values
     if (invoice.status !== 'paid' && invoice.status !== 'pending' && invoice.status !== 'overdue') {
+      console.error('Invalid invoice status:', invoice.status);
       throw new Error('Invalid invoice status. Must be "paid", "pending", or "overdue"');
     }
     
@@ -54,7 +55,7 @@ export async function createInvoice(invoice: Omit<Invoice, 'id' | 'created_at' |
     return completeData;
   } catch (error: any) {
     console.error('Error in createInvoice:', error);
-    toast.error('Failed to create invoice');
+    toast.error(`Failed to create invoice: ${error.message || 'Unknown error'}`);
     return null;
   }
 }

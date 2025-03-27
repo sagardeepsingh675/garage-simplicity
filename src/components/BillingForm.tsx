@@ -181,6 +181,9 @@ export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
         inventory_item_id: item.inventoryId
       }));
 
+      // Make sure we're using the correct status type
+      const invoiceStatus: 'pending' | 'paid' | 'overdue' = 'pending';
+
       const invoiceData = {
         customer_id: jobCard.customer_id,
         vehicle_id: jobCard.vehicle_id,
@@ -188,22 +191,25 @@ export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
         total_amount: subtotal,
         tax_amount: taxAmount,
         grand_total: grandTotal,
-        status: 'pending' as 'pending' | 'paid' | 'overdue',
+        status: invoiceStatus,
         due_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
         services,
         parts,
         notes
       };
 
+      console.log("Creating invoice with data:", invoiceData);
       const result = await createInvoice(invoiceData);
       
       if (result) {
         toast.success('Invoice created successfully');
         if (onSuccess) onSuccess();
+      } else {
+        toast.error('Failed to create invoice - no result returned');
       }
     } catch (error) {
       console.error('Error creating invoice:', error);
-      toast.error('Failed to create invoice');
+      toast.error(`Failed to create invoice: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
