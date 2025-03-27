@@ -20,7 +20,7 @@ const Auth = () => {
 
   // Redirect if user is already logged in
   if (user && !loading) {
-    return <Navigate to="/" />;
+    return <Navigate to="/dashboard" />;
   }
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -39,7 +39,7 @@ const Auth = () => {
       toast.error(error.message || 'Failed to sign in');
     } else {
       toast.success('Signed in successfully!');
-      navigate('/');
+      navigate('/dashboard');
     }
   };
 
