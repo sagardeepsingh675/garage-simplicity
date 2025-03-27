@@ -37,6 +37,11 @@ export async function createInvoice(invoice: Omit<Invoice, 'id' | 'created_at' |
   try {
     console.log('Creating invoice with data:', invoice);
     
+    // Validate that status is one of the allowed values
+    if (invoice.status !== 'paid' && invoice.status !== 'pending' && invoice.status !== 'overdue') {
+      throw new Error('Invalid invoice status. Must be "paid", "pending", or "overdue"');
+    }
+    
     // First insert the invoice
     const insertedData = await insertInvoice(invoice);
     console.log('Invoice inserted successfully:', insertedData);

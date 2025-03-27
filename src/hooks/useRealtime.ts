@@ -31,7 +31,7 @@ export function useRealtime({
       .channel(`${table}-changes`)
       .on(
         'postgres_changes', 
-        {
+        { 
           event,
           schema,
           table,
