@@ -89,8 +89,11 @@ export type Database = {
           grand_total: number
           id: string
           job_card_id: string | null
+          notes: string | null
+          parts: Json | null
           payment_date: string | null
           payment_method: string | null
+          services: Json | null
           status: string
           tax_amount: number
           total_amount: number
@@ -103,8 +106,11 @@ export type Database = {
           grand_total: number
           id?: string
           job_card_id?: string | null
+          notes?: string | null
+          parts?: Json | null
           payment_date?: string | null
           payment_method?: string | null
+          services?: Json | null
           status?: string
           tax_amount: number
           total_amount: number
@@ -117,8 +123,11 @@ export type Database = {
           grand_total?: number
           id?: string
           job_card_id?: string | null
+          notes?: string | null
+          parts?: Json | null
           payment_date?: string | null
           payment_method?: string | null
+          services?: Json | null
           status?: string
           tax_amount?: number
           total_amount?: number

@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { formatInvoiceData } from "./utils";
 import { Invoice, SupabaseInvoice } from "./types";
@@ -71,9 +72,22 @@ export async function insertInvoice(invoice: Omit<Invoice, 'id' | 'created_at' |
     validStatus = invoice.status;
   }
   
+  // Prepare invoice data for insertion
   const invoiceToInsert = {
-    ...invoice,
-    status: validStatus
+    customer_id: invoice.customer_id,
+    vehicle_id: invoice.vehicle_id,
+    job_card_id: invoice.job_card_id,
+    total_amount: invoice.total_amount,
+    tax_amount: invoice.tax_amount,
+    grand_total: invoice.grand_total,
+    status: validStatus,
+    due_date: invoice.due_date,
+    payment_date: invoice.payment_date,
+    payment_method: invoice.payment_method,
+    notes: invoice.notes,
+    // Convert services and parts to JSONB
+    services: invoice.services,
+    parts: invoice.parts
   };
   
   console.log('Inserting invoice data:', invoiceToInsert);

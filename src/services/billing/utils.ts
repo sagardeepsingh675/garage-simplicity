@@ -27,6 +27,7 @@ export function formatInvoiceData(invoice: SupabaseInvoice): Invoice {
     payment_date: invoice.payment_date,
     payment_method: invoice.payment_method,
     notes: invoice.notes,
+    // Parse services and parts from JSONB if they exist
     services: invoice.services || [],
     parts: invoice.parts || [],
     customers: invoice.customers,
