@@ -16,8 +16,8 @@ export type Invoice = {
   payment_date?: string;
   payment_method?: string;
   notes?: string;
-  services: { name: string; cost: number }[];
-  parts: { name: string; quantity: number; cost: number }[];
+  services: { name: string; description?: string; cost: number }[];
+  parts: { name: string; quantity: number; cost: number; inventory_item_id?: string }[];
   customers?: {
     name: string;
     phone: string;

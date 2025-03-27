@@ -29,36 +29,32 @@ export function useRealtime({
     // Create a channel with a specific name related to the table
     const channel = supabase
       .channel(`${table}-changes`)
-      .on(
-        'postgres_changes',
-        { 
-          event,
-          schema,
-          table,
-          filter
-        }, 
-        (payload) => {
-          console.log(`Realtime update on ${table}:`, payload);
-          setLastEvent(payload);
+      .on('postgres_changes', {
+        event,
+        schema,
+        table,
+        filter
+      }, (payload) => {
+        console.log(`Realtime update on ${table}:`, payload);
+        setLastEvent(payload);
+        
+        if (showToasts) {
+          const eventType = payload.eventType;
+          const resourceName = table.charAt(0).toUpperCase() + table.slice(1, -1); // Convert 'customers' to 'Customer'
           
-          if (showToasts) {
-            const eventType = payload.eventType;
-            const resourceName = table.charAt(0).toUpperCase() + table.slice(1, -1); // Convert 'customers' to 'Customer'
-            
-            if (eventType === 'INSERT') {
-              toast.success(`${resourceName} created`);
-            } else if (eventType === 'UPDATE') {
-              toast.success(`${resourceName} updated`);
-            } else if (eventType === 'DELETE') {
-              toast.success(`${resourceName} deleted`);
-            }
-          }
-          
-          if (callback) {
-            callback(payload);
+          if (eventType === 'INSERT') {
+            toast.success(`${resourceName} created`);
+          } else if (eventType === 'UPDATE') {
+            toast.success(`${resourceName} updated`);
+          } else if (eventType === 'DELETE') {
+            toast.success(`${resourceName} deleted`);
           }
         }
-      )
+        
+        if (callback) {
+          callback(payload);
+        }
+      })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           setIsSubscribed(true);

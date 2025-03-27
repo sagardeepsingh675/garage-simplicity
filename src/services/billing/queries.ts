@@ -77,6 +77,10 @@ export async function insertInvoice(invoice: Omit<Invoice, 'id' | 'created_at' |
     status: validStatus
   };
   
+  // Process inventory items if present in parts
+  const partsWithInventory = invoice.parts.filter(part => part.inventory_item_id);
+  
+  // Begin a transaction - this ensures all operations succeed or fail together
   // First, insert the invoice
   const { data: insertedData, error: insertError } = await supabase
     .from('invoices')
@@ -85,6 +89,47 @@ export async function insertInvoice(invoice: Omit<Invoice, 'id' | 'created_at' |
     .single();
   
   if (insertError) throw insertError;
+  
+  // Update inventory quantities if parts with inventory IDs exist
+  if (partsWithInventory.length > 0) {
+    for (const part of partsWithInventory) {
+      if (part.inventory_item_id) {
+        // First get current inventory quantity
+        const { data: inventoryItem, error: getError } = await supabase
+          .from('inventory_items')
+          .select('quantity')
+          .eq('id', part.inventory_item_id)
+          .single();
+          
+        if (getError) {
+          console.error(`Error getting inventory item ${part.inventory_item_id}:`, getError);
+          continue;
+        }
+        
+        if (!inventoryItem) {
+          console.error(`Inventory item ${part.inventory_item_id} not found`);
+          continue;
+        }
+        
+        // Calculate new quantity
+        const newQuantity = inventoryItem.quantity - (part.quantity || 1);
+        if (newQuantity < 0) {
+          console.error(`Not enough quantity available for ${part.name}`);
+          continue;
+        }
+        
+        // Update inventory quantity
+        const { error: updateError } = await supabase
+          .from('inventory_items')
+          .update({ quantity: newQuantity, updated_at: new Date().toISOString() })
+          .eq('id', part.inventory_item_id);
+          
+        if (updateError) {
+          console.error(`Error updating inventory quantity for ${part.inventory_item_id}:`, updateError);
+        }
+      }
+    }
+  }
   
   return insertedData;
 }

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -18,7 +17,8 @@ import { getInvoices, getInvoiceById, updateInvoiceStatus, createInvoice, Invoic
 import { getJobCards, getJobCardById } from '@/services/jobCardService';
 import { getCustomers } from '@/services/customerService';
 import { getVehicles } from '@/services/vehicleService';
-import { AutoBillGenerator } from '@/components/AutoBillGenerator';
+import { BillingForm } from '@/components/BillingForm';
+import { useRealtime } from '@/hooks/useRealtime';
 import { toast } from '@/lib/toast';
 
 const getStatusColor = (status: string) => {
@@ -40,9 +40,17 @@ const Billing = () => {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isCreateInvoiceOpen, setIsCreateInvoiceOpen] = useState(false);
   const [selectedJobCard, setSelectedJobCard] = useState<string | null>(null);
-  const [selectedJobCardData, setSelectedJobCardData] = useState<any>(null);
   
   const queryClient = useQueryClient();
+
+  // Setup realtime updates
+  useRealtime({
+    table: 'invoices',
+    callback: () => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+    },
+    showToasts: true
+  });
 
   // Fetch data from Supabase
   const { data: invoices = [], isLoading: isLoadingInvoices } = useQuery({
@@ -55,32 +63,6 @@ const Billing = () => {
     queryFn: getJobCards
   });
 
-  const { data: customers = [], isLoading: isLoadingCustomers } = useQuery({
-    queryKey: ['customers'],
-    queryFn: getCustomers
-  });
-
-  const { data: vehicles = [], isLoading: isLoadingVehicles } = useQuery({
-    queryKey: ['vehicles'],
-    queryFn: getVehicles
-  });
-
-  // Effect to fetch job card data when selected
-  useEffect(() => {
-    const fetchJobCardData = async () => {
-      if (selectedJobCard) {
-        const jobCardData = await getJobCardById(selectedJobCard);
-        if (jobCardData) {
-          setSelectedJobCardData(jobCardData);
-        }
-      } else {
-        setSelectedJobCardData(null);
-      }
-    };
-    
-    fetchJobCardData();
-  }, [selectedJobCard]);
-
   // Mutations
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: Invoice['status'] }) => 
@@ -88,19 +70,6 @@ const Billing = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       setIsInvoiceDialogOpen(false);
-    }
-  });
-
-  const createInvoiceMutation = useMutation({
-    mutationFn: (invoiceData: any) => createInvoice(invoiceData),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      setIsCreateInvoiceOpen(false);
-      toast.success('Invoice created successfully');
-    },
-    onError: (error) => {
-      console.error('Error creating invoice:', error);
-      toast.error('Failed to create invoice');
     }
   });
 
@@ -133,39 +102,13 @@ const Billing = () => {
     }
   };
 
-  const handleGenerateBill = (data: {
-    services: { id: string; name: string; cost: number }[];
-    parts: { id: string; name: string; quantity: number; cost: number }[];
-    total: number;
-    notes: string;
-  }) => {
-    if (!selectedJobCardData) {
-      toast.error('Please select a job card first');
-      return;
-    }
-    
-    const taxRate = 0.18; // 18% GST
-    const taxAmount = data.total * taxRate;
-    const grandTotal = data.total + taxAmount;
-    
-    const invoiceData = {
-      customer_id: selectedJobCardData.customer_id,
-      vehicle_id: selectedJobCardData.vehicle_id,
-      job_card_id: selectedJobCardData.id,
-      total_amount: data.total,
-      tax_amount: taxAmount,
-      grand_total: grandTotal,
-      status: 'pending' as Invoice['status'],
-      due_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(), // 15 days from now
-      services: data.services,
-      parts: data.parts,
-      notes: data.notes
-    };
-    
-    createInvoiceMutation.mutate(invoiceData);
+  const handleInvoiceCreated = () => {
+    queryClient.invalidateQueries({ queryKey: ['invoices'] });
+    setIsCreateInvoiceOpen(false);
+    setSelectedJobCard(null);
   };
 
-  const isLoading = isLoadingInvoices || isLoadingJobCards || isLoadingCustomers || isLoadingVehicles;
+  const isLoading = isLoadingInvoices || isLoadingJobCards;
 
   if (isLoading) {
     return (
@@ -226,6 +169,7 @@ const Billing = () => {
             </div>
           </div>
           
+          {/* Tab content for different invoice statuses */}
           <TabsContent value="all" className="mt-4">
             <Card className="overflow-hidden border border-border/50 shadow-sm">
               <CardContent className="p-0">
@@ -319,6 +263,7 @@ const Billing = () => {
             </Card>
           </TabsContent>
           
+          {/* Tab content for Paid, Pending, Overdue tabs */}
           <TabsContent value="paid" className="mt-4">
             <Card>
               <CardContent className="p-0">
@@ -558,6 +503,7 @@ const Billing = () => {
         </Tabs>
       </div>
       
+      {/* Invoice detail dialog */}
       <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
         {selectedInvoice && (
           <DialogContent className="sm:max-w-[650px]">
@@ -720,17 +666,18 @@ const Billing = () => {
         )}
       </Dialog>
 
+      {/* Create invoice dialog */}
       <Dialog open={isCreateInvoiceOpen} onOpenChange={setIsCreateInvoiceOpen}>
-        <DialogContent className="sm:max-w-[650px]">
+        <DialogContent className="sm:max-w-[750px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Invoice</DialogTitle>
             <DialogDescription>
-              Generate an invoice from job card or create a new one
+              Select a job card and add items from inventory
             </DialogDescription>
           </DialogHeader>
           
-          <div className="grid gap-6 py-4">
-            <div className="space-y-2">
+          <div className="py-4">
+            <div className="space-y-2 mb-6">
               <Label htmlFor="job-card">Select Job Card</Label>
               <Select value={selectedJobCard || ''} onValueChange={setSelectedJobCard}>
                 <SelectTrigger id="job-card">
@@ -745,16 +692,20 @@ const Billing = () => {
                 </SelectContent>
               </Select>
               <p className="text-sm text-muted-foreground">
-                Selecting a job card will automatically populate customer and vehicle details
+                Select a job card to create an invoice with parts and services
               </p>
             </div>
             
-            <AutoBillGenerator
-              jobCardId={selectedJobCard || undefined}
-              vehicleData={selectedJobCardData?.vehicles}
-              customerData={selectedJobCardData?.customers}
-              onGenerateBill={handleGenerateBill}
-            />
+            {selectedJobCard ? (
+              <BillingForm 
+                jobCardId={selectedJobCard}
+                onSuccess={handleInvoiceCreated}
+              />
+            ) : (
+              <div className="text-center p-6 border border-dashed rounded-md">
+                <p className="text-muted-foreground">Please select a job card first</p>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
