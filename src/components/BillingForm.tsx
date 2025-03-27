@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +10,7 @@ import { getInventoryItems } from '@/services/inventoryService';
 import { getJobCardById } from '@/services/jobCardService';
 import { createInvoice } from '@/services/billing';
 import { toast } from '@/lib/toast';
+import { Invoice } from '@/services/billing/types';
 
 interface BillingFormProps {
   jobCardId: string;
@@ -188,8 +188,8 @@ export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
         total_amount: subtotal,
         tax_amount: taxAmount,
         grand_total: grandTotal,
-        status: 'pending',
-        due_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(), // 15 days from now
+        status: 'pending' as 'pending' | 'paid' | 'overdue',
+        due_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
         services,
         parts,
         notes
