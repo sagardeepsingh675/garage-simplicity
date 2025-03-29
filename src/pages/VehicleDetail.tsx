@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -19,17 +19,19 @@ import { useToast } from '@/components/ui/use-toast';
 import { getVehicleById, updateVehicle } from '@/services/vehicleService';
 import { getCustomerById } from '@/services/customerService';
 import { getStaff } from '@/services/staffService';
-import { createJobCard, getJobCardsByVehicleId } from '@/services/jobCardService';
+import { createJobCard, getJobCardsByVehicleId, updateJobCardStatus } from '@/services/jobCardService';
 import { toast } from '@/lib/toast';
 
 const getStatusColor = (status: string) => {
   switch (status) {
-    case 'active':
-      return 'bg-success/10 text-success';
-    case 'servicing':
+    case 'pending':
+      return 'bg-muted text-muted-foreground';
+    case 'in-progress':
       return 'bg-warning/10 text-warning';
     case 'completed':
-      return 'bg-info/10 text-info';
+      return 'bg-success/10 text-success';
+    case 'cancelled':
+      return 'bg-destructive/10 text-destructive';
     default:
       return 'bg-muted text-muted-foreground';
   }
@@ -51,34 +53,29 @@ const VehicleDetail = () => {
     priority: 'medium'
   });
   
-  // Fetch vehicle data
   const { data: vehicle, isLoading, isError } = useQuery({
     queryKey: ['vehicle', id],
     queryFn: () => getVehicleById(id || ''),
     enabled: !!id
   });
 
-  // Fetch customer data
   const { data: customer, isLoading: isLoadingCustomer } = useQuery({
     queryKey: ['customer', vehicle?.customer_id],
     queryFn: () => getCustomerById(vehicle?.customer_id || ''),
     enabled: !!vehicle?.customer_id
   });
 
-  // Fetch staff for dropdown
   const { data: staffMembers = [] } = useQuery({
     queryKey: ['staff'],
     queryFn: getStaff
   });
 
-  // Fetch job cards for this vehicle
   const { data: jobCards = [], isLoading: isLoadingJobCards } = useQuery({
     queryKey: ['jobCards', id],
     queryFn: () => getJobCardsByVehicleId(id || ''),
     enabled: !!id
   });
 
-  // Update vehicle mutation
   const updateVehicleMutation = useMutation({
     mutationFn: (data: any) => updateVehicle(id || '', data),
     onSuccess: () => {
@@ -92,10 +89,10 @@ const VehicleDetail = () => {
     }
   });
 
-  // Create job card mutation
   const createJobCardMutation = useMutation({
     mutationFn: (data: any) => createJobCard(data),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobCards', id] });
       setIsJobCardDialogOpen(false);
       toast.success('Job card created successfully');
       resetJobCardForm();
@@ -106,6 +103,19 @@ const VehicleDetail = () => {
     }
   });
 
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ jobCardId, status }: { jobCardId: string; status: string }) => 
+      updateJobCardStatus(jobCardId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobCards', id] });
+      toast.success('Status updated successfully');
+    },
+    onError: (error) => {
+      console.error('Error updating status:', error);
+      toast.error('Failed to update status');
+    }
+  });
+
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editVehicleData) {
@@ -113,7 +123,6 @@ const VehicleDetail = () => {
     }
   };
 
-  // Start vehicle edit
   const handleStartEdit = () => {
     if (vehicle) {
       setEditVehicleData({
@@ -160,6 +169,11 @@ const VehicleDetail = () => {
     createJobCardMutation.mutate(jobCardData);
   };
   
+  const handleStatusUpdate = (jobCardId: string, newStatus: string) => {
+    if (updateStatusMutation.isPending) return;
+    updateStatusMutation.mutate({ jobCardId, newStatus });
+  };
+  
   const resetJobCardForm = () => {
     setNewJobCard({
       issue_description: '',
@@ -192,6 +206,9 @@ const VehicleDetail = () => {
     );
   }
 
+  const activeJobCards = jobCards.filter(card => card.status !== 'completed' && card.status !== 'cancelled');
+  const hasActiveJobCards = activeJobCards.length > 0;
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -205,6 +222,9 @@ const VehicleDetail = () => {
             </div>
             <div className="flex items-center gap-2">
               <h1 className="text-3xl font-bold tracking-tight">{vehicle.license_plate || 'No Registration'}</h1>
+              {hasActiveJobCards && (
+                <Badge className="bg-warning/10 text-warning">In Service</Badge>
+              )}
             </div>
             <p className="text-muted-foreground">{vehicle.make} {vehicle.model} ({vehicle.year || 'N/A'})</p>
           </div>
@@ -306,12 +326,35 @@ const VehicleDetail = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="pt-4 text-center">
-                    <p className="text-muted-foreground">No service history available</p>
-                    <Button variant="outline" className="mt-4 gap-2" onClick={() => setIsJobCardDialogOpen(true)}>
-                      <Plus className="h-4 w-4" /> Create Job Card
-                    </Button>
-                  </div>
+                  {hasActiveJobCards ? (
+                    <div className="space-y-3">
+                      <p className="font-medium">Active Job Cards:</p>
+                      {activeJobCards.map(card => (
+                        <div key={card.id} className="border rounded-md p-3">
+                          <div className="flex justify-between items-center">
+                            <Badge className={getStatusColor(card.status)}>
+                              {card.status === 'in-progress' ? 'In Progress' : 
+                              card.status.charAt(0).toUpperCase() + card.status.slice(1)}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground">
+                              {new Date(card.created_at || '').toLocaleDateString()}
+                            </span>
+                          </div>
+                          <p className="mt-1">{card.issue_description}</p>
+                        </div>
+                      ))}
+                      <Button variant="outline" size="sm" className="w-full" onClick={() => setActiveTab('jobs')}>
+                        View All Job Cards
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="pt-4 text-center">
+                      <p className="text-muted-foreground">No active service job</p>
+                      <Button variant="outline" className="mt-4 gap-2" onClick={() => setIsJobCardDialogOpen(true)}>
+                        <Plus className="h-4 w-4" /> Create Job Card
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -360,7 +403,8 @@ const VehicleDetail = () => {
                             <div className="space-y-1">
                               <div className="flex items-center gap-2">
                                 <Badge className={getStatusColor(jobCard.status)}>
-                                  {jobCard.status.charAt(0).toUpperCase() + jobCard.status.slice(1)}
+                                  {jobCard.status === 'in-progress' ? 'In Progress' : 
+                                   jobCard.status.charAt(0).toUpperCase() + jobCard.status.slice(1)}
                                 </Badge>
                                 <span className="text-sm text-muted-foreground">
                                   {new Date(jobCard.created_at || '').toLocaleDateString()}
@@ -435,8 +479,9 @@ const VehicleDetail = () => {
                               </h3>
                               <p className="text-sm text-muted-foreground">{jobCard.issue_description}</p>
                             </div>
-                            <Badge className={`bg-${jobCard.status === 'pending' ? 'warning' : jobCard.status === 'completed' ? 'success' : 'info'}/10 text-${jobCard.status === 'pending' ? 'warning' : jobCard.status === 'completed' ? 'success' : 'info'}`}>
-                              {jobCard.status.charAt(0).toUpperCase() + jobCard.status.slice(1)}
+                            <Badge className={getStatusColor(jobCard.status)}>
+                              {jobCard.status === 'in-progress' ? 'In Progress' : 
+                               jobCard.status.charAt(0).toUpperCase() + jobCard.status.slice(1)}
                             </Badge>
                           </div>
                           <div className="grid grid-cols-2 gap-4 mb-4">
@@ -454,10 +499,49 @@ const VehicleDetail = () => {
                             </div>
                             <div className="text-sm">
                               <p className="text-muted-foreground">Status</p>
-                              <p className="capitalize">{jobCard.status}</p>
+                              <p className="capitalize">
+                                {jobCard.status === 'in-progress' ? 'In Progress' : jobCard.status}
+                              </p>
                             </div>
                           </div>
-                          <div className="flex justify-end">
+                          <div className="flex flex-wrap justify-between items-center">
+                            <div className="space-x-2 mb-2 md:mb-0">
+                              {jobCard.status !== 'completed' && (
+                                <>
+                                  {jobCard.status !== 'in-progress' && (
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => handleStatusUpdate(jobCard.id, 'in-progress')}
+                                      disabled={updateStatusMutation.isPending}
+                                    >
+                                      Start Service
+                                    </Button>
+                                  )}
+                                  {jobCard.status === 'in-progress' && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleStatusUpdate(jobCard.id, 'completed')}
+                                      disabled={updateStatusMutation.isPending}
+                                    >
+                                      Complete Service
+                                    </Button>
+                                  )}
+                                </>
+                              )}
+                              {jobCard.status !== 'cancelled' && jobCard.status !== 'completed' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => handleStatusUpdate(jobCard.id, 'cancelled')}
+                                  disabled={updateStatusMutation.isPending}
+                                >
+                                  Cancel
+                                </Button>
+                              )}
+                            </div>
                             <Button variant="outline" size="sm" className="gap-1" onClick={() => setIsGenerateBillOpen(true)}>
                               <IndianRupee className="h-4 w-4" /> Generate Bill
                             </Button>
@@ -473,7 +557,6 @@ const VehicleDetail = () => {
         </Tabs>
       </div>
       
-      {/* Create Job Card Dialog */}
       <Dialog open={isJobCardDialogOpen} onOpenChange={(open) => {
         setIsJobCardDialogOpen(open);
         if (!open) resetJobCardForm();
@@ -546,7 +629,6 @@ const VehicleDetail = () => {
         </DialogContent>
       </Dialog>
       
-      {/* Edit Vehicle Dialog */}
       <Dialog open={isEditVehicleOpen} onOpenChange={setIsEditVehicleOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
@@ -625,7 +707,6 @@ const VehicleDetail = () => {
         </DialogContent>
       </Dialog>
       
-      {/* Generate Bill Dialog */}
       <Dialog open={isGenerateBillOpen} onOpenChange={setIsGenerateBillOpen}>
         <DialogContent className="sm:max-w-[900px]">
           <DialogHeader>

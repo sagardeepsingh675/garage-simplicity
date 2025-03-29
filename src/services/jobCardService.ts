@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/lib/toast";
 
@@ -98,9 +99,24 @@ export async function getJobCardById(id: string) {
 
 export async function createJobCard(jobCard: Omit<JobCard, 'id'>) {
   try {
+    // Ensure we have all required fields
+    if (!jobCard.vehicle_id || !jobCard.customer_id || !jobCard.issue_description) {
+      toast.error('Missing required fields for job card');
+      return null;
+    }
+
     const { data, error } = await supabase
       .from('job_cards')
-      .insert(jobCard)
+      .insert({
+        vehicle_id: jobCard.vehicle_id,
+        customer_id: jobCard.customer_id,
+        issue_description: jobCard.issue_description,
+        assigned_staff: jobCard.assigned_staff,
+        status: jobCard.status || 'pending',
+        start_date: jobCard.start_date,
+        completion_date: jobCard.completion_date,
+        diagnosis: jobCard.diagnosis
+      })
       .select()
       .single();
     
@@ -117,9 +133,21 @@ export async function createJobCard(jobCard: Omit<JobCard, 'id'>) {
 
 export async function updateJobCard(id: string, jobCard: Partial<JobCard>) {
   try {
+    const updateData = { ...jobCard, updated_at: new Date().toISOString() };
+    
+    // If status is in-progress and no start date is set, set it to now
+    if (jobCard.status === 'in-progress' && !jobCard.start_date) {
+      updateData.start_date = new Date().toISOString();
+    }
+    
+    // If status is completed and no completion date is set, set it to now
+    if (jobCard.status === 'completed' && !jobCard.completion_date) {
+      updateData.completion_date = new Date().toISOString();
+    }
+    
     const { data, error } = await supabase
       .from('job_cards')
-      .update(jobCard)
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();
@@ -194,9 +222,26 @@ export async function getJobCardServices(jobCardId: string) {
 
 export async function updateJobCardStatus(jobCardId: string, status: string) {
   try {
-    const updateData: any = { status };
+    const updateData: any = { 
+      status,
+      updated_at: new Date().toISOString()
+    };
     
-    // If status is completed, set completion date
+    // If status is in-progress and no start date is set, set it to now
+    if (status === 'in-progress') {
+      // First check if start_date is already set
+      const { data: existingData } = await supabase
+        .from('job_cards')
+        .select('start_date')
+        .eq('id', jobCardId)
+        .single();
+        
+      if (!existingData?.start_date) {
+        updateData.start_date = new Date().toISOString();
+      }
+    }
+    
+    // If status is completed, set completion date to now
     if (status === 'completed') {
       updateData.completion_date = new Date().toISOString();
     }
