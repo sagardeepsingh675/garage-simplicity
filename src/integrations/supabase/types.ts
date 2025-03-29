@@ -9,6 +9,36 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      business_settings: {
+        Row: {
+          business_address: string
+          business_name: string
+          business_phone: string
+          created_at: string
+          id: string
+          logo_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          business_address: string
+          business_name: string
+          business_phone: string
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          business_address?: string
+          business_name?: string
+          business_phone?: string
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           address: string | null
@@ -326,6 +356,36 @@ export type Database = {
           phone?: string | null
           role?: string
           specialty?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      staff_users: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          permissions: string[]
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          name: string
+          permissions: string[]
+          role: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          permissions?: string[]
+          role?: string
           updated_at?: string
         }
         Relationships: []
