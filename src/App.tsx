@@ -17,6 +17,7 @@ import Staff from "./pages/Staff";
 import JobCards from "./pages/JobCards";
 import Inventory from "./pages/Inventory";
 import Billing from "./pages/Billing";
+import Settings from "./pages/Settings"; // Added this import
 import NotFound from "./pages/NotFound";
 
 // Public Pages
@@ -56,6 +57,7 @@ const App = () => {
               <Route path="/job-cards" element={<ProtectedRoute><JobCards /></ProtectedRoute>} />
               <Route path="/inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
               <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} /> 
               
               {/* 404 Route */}
               <Route path="*" element={<NotFound />} />
