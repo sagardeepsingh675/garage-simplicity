@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/lib/toast';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 export type RealtimeEvent = 'INSERT' | 'UPDATE' | 'DELETE' | '*';
 
@@ -30,7 +31,7 @@ export function useRealtime({
     const channel = supabase
       .channel(`${table}-changes`)
       .on(
-        'postgres_changes', // This is the correct event type for Supabase Realtime
+        'postgres_changes', 
         { 
           event,
           schema,
