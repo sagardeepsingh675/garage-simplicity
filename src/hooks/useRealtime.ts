@@ -1,8 +1,8 @@
 
-import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/lib/toast';
-import { RealtimeChannel } from '@supabase/supabase-js';
+// This file is deprecated and will be removed
+// It's kept as a placeholder to prevent import errors
+
+import { useState } from 'react';
 
 export type RealtimeEvent = 'INSERT' | 'UPDATE' | 'DELETE' | '*';
 
@@ -15,7 +15,9 @@ interface UseRealtimeOptions {
   showToasts?: boolean;
 }
 
+// This is a stub implementation that doesn't actually subscribe to realtime events
 export function useRealtime({
+  // Parameters are kept to maintain API compatibility
   table,
   event = '*',
   schema = 'public',
@@ -26,52 +28,7 @@ export function useRealtime({
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [lastEvent, setLastEvent] = useState<any>(null);
 
-  useEffect(() => {
-    // Create a channel with a specific name related to the table
-    const channel = supabase
-      .channel(`${table}-changes`)
-      .on(
-        'postgres_changes', 
-        { 
-          event,
-          schema,
-          table,
-          filter
-        }, 
-        (payload) => {
-          console.log(`Realtime update on ${table}:`, payload);
-          setLastEvent(payload);
-          
-          if (showToasts) {
-            const eventType = payload.eventType;
-            const resourceName = table.charAt(0).toUpperCase() + table.slice(1, -1); // Convert 'customers' to 'Customer'
-            
-            if (eventType === 'INSERT') {
-              toast.success(`${resourceName} created`);
-            } else if (eventType === 'UPDATE') {
-              toast.success(`${resourceName} updated`);
-            } else if (eventType === 'DELETE') {
-              toast.success(`${resourceName} deleted`);
-            }
-          }
-          
-          if (callback) {
-            callback(payload);
-          }
-        }
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          setIsSubscribed(true);
-          console.log(`Subscribed to ${table} changes`);
-        }
-      });
-      
-    return () => {
-      supabase.removeChannel(channel);
-      setIsSubscribed(false);
-    };
-  }, [table, event, schema, filter, callback, showToasts]);
-
-  return { isSubscribed, lastEvent };
+  // No subscriptions are set up
+  // This function now returns dummy values for API compatibility
+  return { isSubscribed: false, lastEvent: null };
 }

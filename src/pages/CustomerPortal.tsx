@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -46,7 +45,6 @@ const CustomerPortal = () => {
         return;
       }
 
-      // First, find the customer by email
       const { data: customers, error: customerError } = await supabase
         .from('customers')
         .select('id, name')
@@ -61,7 +59,6 @@ const CustomerPortal = () => {
 
       setCustomerId(customers.id);
 
-      // Then, find the vehicle by license plate and customer ID
       const { data: vehicleData, error: vehicleError } = await supabase
         .from('vehicles')
         .select('id, license_plate, make, model, customer_id')
@@ -75,7 +72,6 @@ const CustomerPortal = () => {
         return;
       }
 
-      // Now get job cards for this vehicle to determine status
       const { data: jobCards, error: jobCardsError } = await supabase
         .from('job_cards')
         .select('id, status, issue_description, diagnosis, created_at')
@@ -109,38 +105,8 @@ const CustomerPortal = () => {
     }
   };
 
-  // Set up real-time subscription when customer is logged in
-  useEffect(() => {
-    if (!customerId) return;
-    
-    // Set up real-time subscription for job cards
-    const jobCardsChannel = supabase
-      .channel('job-cards-changes')
-      .on('postgres_changes', 
-        {
-          event: '*',
-          schema: 'public',
-          table: 'job_cards',
-          filter: `customer_id=eq.${customerId}`
-        }, 
-        (payload) => {
-          console.log('Job card update received:', payload);
-          // Refresh vehicle data when job cards are updated
-          if (vehicles.length > 0) {
-            refreshVehicleData(vehicles[0].id);
-          }
-        }
-      )
-      .subscribe();
-      
-    return () => {
-      supabase.removeChannel(jobCardsChannel);
-    };
-  }, [customerId, vehicles]);
-
   const refreshVehicleData = async (vehicleId: string) => {
     try {
-      // Get updated job cards for this vehicle
       const { data: jobCards, error: jobCardsError } = await supabase
         .from('job_cards')
         .select('id, status, issue_description, diagnosis, created_at')
@@ -152,7 +118,6 @@ const CustomerPortal = () => {
         return;
       }
 
-      // Update vehicle state with the latest information
       setVehicles(vehicles.map(vehicle => 
         vehicle.id === vehicleId ? {
           ...vehicle,
@@ -164,7 +129,7 @@ const CustomerPortal = () => {
         } : vehicle
       ));
 
-      toast.success('Vehicle information updated in real-time');
+      toast.success('Vehicle information updated');
     } catch (error) {
       console.error('Error refreshing vehicle data:', error);
     }

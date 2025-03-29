@@ -15,7 +15,6 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InventoryItem, createInventoryItem, getInventoryItems, updateInventoryQuantity } from '@/services/inventoryService';
 import { toast } from '@/lib/toast';
-import { useRealtime } from '@/hooks/useRealtime';
 
 const getStockStatus = (quantity: number, minQuantity: number) => {
   if (quantity === 0) return { badge: 'Out of Stock', color: 'bg-destructive/10 text-destructive' };
@@ -63,30 +62,13 @@ const Inventory = () => {
     queryFn: getInventoryItems
   });
   
-  useRealtime({
-    table: 'inventory_items',
-    callback: (payload) => {
-      console.log('Realtime inventory update received:', payload);
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      
-      const eventType = payload.eventType;
-      if (eventType === 'INSERT') {
-        toast.success('New inventory item added');
-      } else if (eventType === 'UPDATE') {
-        toast.success('Inventory item updated');
-      } else if (eventType === 'DELETE') {
-        toast.success('Inventory item removed');
-      }
-    },
-    showToasts: false
-  });
-  
   const createItemMutation = useMutation({
     mutationFn: createInventoryItem,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
       setIsAddItemOpen(false);
       resetForm();
+      toast.success('New inventory item added');
     }
   });
 

@@ -6,8 +6,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { useEffect } from "react";
-import { supabase } from "./integrations/supabase/client";
 
 // Dashboard Pages
 import Index from "./pages/Index";
@@ -30,20 +28,8 @@ import CustomerPortal from "./pages/CustomerPortal";
 const queryClient = new QueryClient();
 
 const App = () => {
-  // Initialize realtime functionality
-  useEffect(() => {
-    const initRealtime = async () => {
-      try {
-        // We're not trying to import SQL as a module anymore
-        console.log("Realtime functionality initialized");
-      } catch (error) {
-        console.error("Failed to initialize realtime functionality:", error);
-      }
-    };
-    
-    initRealtime();
-  }, []);
-
+  // Remove realtime initialization code
+  
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
