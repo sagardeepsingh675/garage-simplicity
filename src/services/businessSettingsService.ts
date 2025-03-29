@@ -52,11 +52,18 @@ export async function updateBusinessSettings(settings: Partial<BusinessSettings>
       if (error) throw error;
       result = data;
     } else {
-      // Create new settings
+      // Create new settings - ensure required fields are present
+      if (!settings.business_name || !settings.business_address || !settings.business_phone) {
+        throw new Error("Business name, address, and phone are required");
+      }
+
       const { data, error } = await supabase
         .from('business_settings')
         .insert({
-          ...settings,
+          business_name: settings.business_name,
+          business_address: settings.business_address,
+          business_phone: settings.business_phone,
+          logo_url: settings.logo_url,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })

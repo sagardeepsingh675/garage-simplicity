@@ -51,7 +51,7 @@ export async function createStaffUser(email: string, password: string, name: str
   }
 }
 
-export async function getStaffUsers() {
+export async function getStaffUsers(): Promise<StaffUser[]> {
   try {
     const { data, error } = await supabase
       .from('staff_users')
@@ -60,7 +60,13 @@ export async function getStaffUsers() {
     
     if (error) throw error;
     
-    return data || [];
+    // Ensure permissions are of StaffPermission type
+    const typedData = data?.map(user => ({
+      ...user,
+      permissions: user.permissions as StaffPermission[]
+    })) || [];
+    
+    return typedData;
   } catch (error: any) {
     console.error('Error fetching staff users:', error);
     toast.error('Failed to load staff users');

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -64,14 +64,16 @@ const Settings = () => {
   // Query for fetching business settings
   const businessSettingsQuery = useQuery({
     queryKey: ['businessSettings'],
-    queryFn: getBusinessSettings,
-    onSuccess: (data) => {
-      if (data) {
-        setBusinessSettings(data);
-        setLogoPreview(data.logo_url || null);
-      }
-    }
+    queryFn: getBusinessSettings
   });
+  
+  // Update business settings when data is fetched
+  useEffect(() => {
+    if (businessSettingsQuery.data) {
+      setBusinessSettings(businessSettingsQuery.data);
+      setLogoPreview(businessSettingsQuery.data.logo_url || null);
+    }
+  }, [businessSettingsQuery.data]);
   
   // Query for fetching staff users
   const staffUsersQuery = useQuery({
@@ -473,7 +475,7 @@ const Settings = () => {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      staffUsersQuery.data?.map((staff: StaffUser) => (
+                      staffUsersQuery.data?.map((staff) => (
                         <TableRow key={staff.id}>
                           <TableCell>
                             <div className="flex items-center gap-3">
