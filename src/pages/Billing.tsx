@@ -43,7 +43,6 @@ const Billing = () => {
   
   const queryClient = useQueryClient();
 
-  // Setup realtime updates
   useRealtime({
     table: 'invoices',
     callback: () => {
@@ -52,7 +51,6 @@ const Billing = () => {
     showToasts: true
   });
 
-  // Fetch data from Supabase
   const { data: invoices = [], isLoading: isLoadingInvoices } = useQuery({
     queryKey: ['invoices'],
     queryFn: getInvoices
@@ -63,7 +61,6 @@ const Billing = () => {
     queryFn: getJobCards
   });
 
-  // Mutations
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: Invoice['status'] }) => 
       updateInvoiceStatus(id, status),
@@ -106,6 +103,227 @@ const Billing = () => {
     queryClient.invalidateQueries({ queryKey: ['invoices'] });
     setIsCreateInvoiceOpen(false);
     setSelectedJobCard(null);
+  };
+
+  const handlePrintInvoice = (invoice: Invoice) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Pop-up blocked. Please allow pop-ups to print invoices.');
+      return;
+    }
+
+    const formatDate = (dateString: string) => {
+      return new Date(dateString).toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    };
+
+    const servicesTotal = invoice.services.reduce((sum, service) => sum + (service.cost || 0), 0);
+    const partsTotal = invoice.parts.reduce((sum, part) => sum + ((part.cost || 0) * (part.quantity || 0)), 0);
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Invoice ${invoice.id}</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+          }
+          .invoice-header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+          }
+          .invoice-details {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+          }
+          .invoice-details > div {
+            max-width: 45%;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+          }
+          th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+          }
+          th {
+            background-color: #f2f2f2;
+          }
+          .totals {
+            margin-top: 20px;
+            text-align: right;
+          }
+          .grand-total {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-top: 10px;
+          }
+          .invoice-footer {
+            margin-top: 50px;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+            font-size: 0.9em;
+            text-align: center;
+          }
+          .status {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: bold;
+            text-transform: uppercase;
+          }
+          .status-paid { background-color: #d1fae5; color: #047857; }
+          .status-pending { background-color: #ffedd5; color: #d97706; }
+          .status-overdue { background-color: #fee2e2; color: #dc2626; }
+          @media print {
+            body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="invoice-header">
+          <h1>INVOICE</h1>
+          <h2>Invoice #${invoice.id}</h2>
+          <div class="status status-${invoice.status}">
+            ${invoice.status.toUpperCase()}
+          </div>
+        </div>
+        
+        <div class="invoice-details">
+          <div>
+            <h3>Bill To:</h3>
+            <p><strong>${invoice.customers?.name || 'N/A'}</strong><br>
+            ${invoice.customers?.phone || 'No phone'}<br>
+            ${invoice.customers?.email || 'No email'}</p>
+          </div>
+          <div>
+            <h3>Invoice Details:</h3>
+            <p>
+            <strong>Date:</strong> ${formatDate(invoice.created_at)}<br>
+            <strong>Due Date:</strong> ${formatDate(invoice.due_date)}<br>
+            <strong>Job Card:</strong> ${invoice.job_card_id}</p>
+          </div>
+        </div>
+        
+        <div class="invoice-details">
+          <div>
+            <h3>Vehicle Details:</h3>
+            <p>${invoice.job_cards?.vehicles ? 
+              `${invoice.job_cards.vehicles.make} ${invoice.job_cards.vehicles.model}<br>
+              License Plate: ${invoice.job_cards.vehicles.license_plate || 'N/A'}<br>
+              Year: ${invoice.job_cards.vehicles.year || 'N/A'}`
+              : 'N/A'}</p>
+          </div>
+          <div>
+            <h3>Issue Description:</h3>
+            <p>${invoice.job_cards?.issue_description || 'N/A'}</p>
+          </div>
+        </div>
+
+        <h3>Services</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th>Amount (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${invoice.services && invoice.services.length > 0 ? 
+              invoice.services.map(service => `
+                <tr>
+                  <td>${service.name} ${service.description ? `<br><small>${service.description}</small>` : ''}</td>
+                  <td>₹${service.cost.toLocaleString('en-IN')}</td>
+                </tr>
+              `).join('') : 
+              '<tr><td colspan="2" style="text-align: center;">No services</td></tr>'
+            }
+            ${invoice.services && invoice.services.length > 0 ? 
+              `<tr>
+                <td><strong>Services Subtotal</strong></td>
+                <td><strong>₹${servicesTotal.toLocaleString('en-IN')}</strong></td>
+              </tr>` : ''
+            }
+          </tbody>
+        </table>
+
+        <h3>Parts</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th>Quantity</th>
+              <th>Unit Price (₹)</th>
+              <th>Amount (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${invoice.parts && invoice.parts.length > 0 ? 
+              invoice.parts.map(part => `
+                <tr>
+                  <td>${part.name}</td>
+                  <td>${part.quantity}</td>
+                  <td>₹${part.cost.toLocaleString('en-IN')}</td>
+                  <td>₹${(part.cost * part.quantity).toLocaleString('en-IN')}</td>
+                </tr>
+              `).join('') : 
+              '<tr><td colspan="4" style="text-align: center;">No parts</td></tr>'
+            }
+            ${invoice.parts && invoice.parts.length > 0 ? 
+              `<tr>
+                <td colspan="3"><strong>Parts Subtotal</strong></td>
+                <td><strong>₹${partsTotal.toLocaleString('en-IN')}</strong></td>
+              </tr>` : ''
+            }
+          </tbody>
+        </table>
+
+        <div class="totals">
+          <p><strong>Subtotal:</strong> ₹${invoice.total_amount.toLocaleString('en-IN')}</p>
+          <p><strong>Tax (18%):</strong> ₹${invoice.tax_amount.toLocaleString('en-IN')}</p>
+          <div class="grand-total">
+            <p>Grand Total: ₹${invoice.grand_total.toLocaleString('en-IN')}</p>
+          </div>
+          ${invoice.payment_date ? 
+            `<p>Payment received on ${formatDate(invoice.payment_date)} via ${invoice.payment_method || 'N/A'}</p>` : 
+            ''}
+        </div>
+
+        ${invoice.notes ? 
+          `<div>
+            <h3>Notes:</h3>
+            <p>${invoice.notes}</p>
+          </div>` : 
+          ''}
+
+        <div class="invoice-footer">
+          <p>Thank you for your business!</p>
+        </div>
+        
+        <script>
+          window.onload = function() { window.print(); }
+        </script>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(printContent);
+    printWindow.document.close();
   };
 
   const isLoading = isLoadingInvoices || isLoadingJobCards;
@@ -169,7 +387,6 @@ const Billing = () => {
             </div>
           </div>
           
-          {/* Tab content for different invoice statuses */}
           <TabsContent value="all" className="mt-4">
             <Card className="overflow-hidden border border-border/50 shadow-sm">
               <CardContent className="p-0">
@@ -250,7 +467,9 @@ const Billing = () => {
                                   </DropdownMenuItem>
                                 )}
                                 <DropdownMenuItem>Send to customer</DropdownMenuItem>
-                                <DropdownMenuItem>Print invoice</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handlePrintInvoice(invoice)}>
+                                  Print invoice
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -263,7 +482,6 @@ const Billing = () => {
             </Card>
           </TabsContent>
           
-          {/* Tab content for Paid, Pending, Overdue tabs */}
           <TabsContent value="paid" className="mt-4">
             <Card>
               <CardContent className="p-0">
@@ -503,7 +721,6 @@ const Billing = () => {
         </Tabs>
       </div>
       
-      {/* Invoice detail dialog */}
       <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
         {selectedInvoice && (
           <DialogContent className="sm:max-w-[650px]">
@@ -666,7 +883,6 @@ const Billing = () => {
         )}
       </Dialog>
 
-      {/* Create invoice dialog */}
       <Dialog open={isCreateInvoiceOpen} onOpenChange={setIsCreateInvoiceOpen}>
         <DialogContent className="sm:max-w-[750px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
