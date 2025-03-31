@@ -11,13 +11,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Building, Image, Phone, User, UserPlus, Key, ShieldCheck, MoreHorizontal, UserCircle } from 'lucide-react';
+import { Building, Image, Phone, User, UserPlus, Key, ShieldCheck, MoreHorizontal, UserCircle, Receipt } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/lib/toast';
 import { getBusinessSettings, updateBusinessSettings, uploadLogo, BusinessSettings } from '@/services/businessSettingsService';
 import { createStaffUser, getStaffUsers, updateStaffUser, deleteStaffUser, resetStaffPassword, StaffUser, StaffPermission } from '@/services/staffAuthService';
+import { InvoiceSettings } from '@/components/InvoiceSettings';
 
 const Settings = () => {
   const queryClient = useQueryClient();
@@ -28,7 +29,12 @@ const Settings = () => {
     business_name: '',
     business_address: '',
     business_phone: '',
-    logo_url: ''
+    logo_url: '',
+    invoice_prefix: 'INV',
+    next_invoice_number: 1001,
+    gst_number: '',
+    gst_percentage: 0,
+    show_gst_on_invoice: false
   });
   
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -70,7 +76,14 @@ const Settings = () => {
   // Update business settings when data is fetched
   useEffect(() => {
     if (businessSettingsQuery.data) {
-      setBusinessSettings(businessSettingsQuery.data);
+      setBusinessSettings({
+        ...businessSettingsQuery.data,
+        invoice_prefix: businessSettingsQuery.data.invoice_prefix || 'INV',
+        next_invoice_number: businessSettingsQuery.data.next_invoice_number || 1001,
+        gst_number: businessSettingsQuery.data.gst_number || '',
+        gst_percentage: businessSettingsQuery.data.gst_percentage || 0,
+        show_gst_on_invoice: businessSettingsQuery.data.show_gst_on_invoice || false
+      });
       setLogoPreview(businessSettingsQuery.data.logo_url || null);
     }
   }, [businessSettingsQuery.data]);
@@ -307,11 +320,16 @@ const Settings = () => {
         </div>
         
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full md:w-auto grid-cols-2 md:grid-cols-auto">
+          <TabsList className="grid w-full md:w-auto grid-cols-3 md:grid-cols-auto">
             <TabsTrigger value="business" className="flex items-center gap-2">
               <Building className="h-4 w-4" />
               <span className="hidden md:inline">Business Information</span>
               <span className="inline md:hidden">Business</span>
+            </TabsTrigger>
+            <TabsTrigger value="invoice" className="flex items-center gap-2">
+              <Receipt className="h-4 w-4" />
+              <span className="hidden md:inline">Invoice Settings</span>
+              <span className="inline md:hidden">Invoice</span>
             </TabsTrigger>
             <TabsTrigger value="staff" className="flex items-center gap-2">
               <UserCircle className="h-4 w-4" />
@@ -433,6 +451,25 @@ const Settings = () => {
                 </form>
               </CardContent>
             </Card>
+          </TabsContent>
+          
+          {/* Invoice Settings Tab */}
+          <TabsContent value="invoice" className="space-y-6 pt-4">
+            <form onSubmit={handleBusinessSettingsSubmit} className="space-y-6">
+              <InvoiceSettings 
+                businessSettings={businessSettings}
+                setBusinessSettings={setBusinessSettings}
+              />
+              
+              <div className="flex justify-end">
+                <Button 
+                  type="submit" 
+                  disabled={updateBusinessSettingsMutation.isPending}
+                >
+                  {updateBusinessSettingsMutation.isPending ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            </form>
           </TabsContent>
           
           {/* Staff Access Tab */}

@@ -8,6 +8,11 @@ export type BusinessSettings = {
   business_address: string;
   business_phone: string;
   logo_url?: string;
+  invoice_prefix?: string;
+  next_invoice_number?: number;
+  gst_number?: string;
+  gst_percentage?: number;
+  show_gst_on_invoice?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -64,6 +69,11 @@ export async function updateBusinessSettings(settings: Partial<BusinessSettings>
           business_address: settings.business_address,
           business_phone: settings.business_phone,
           logo_url: settings.logo_url,
+          invoice_prefix: settings.invoice_prefix || 'INV',
+          next_invoice_number: settings.next_invoice_number || 1001,
+          gst_number: settings.gst_number,
+          gst_percentage: settings.gst_percentage || 0,
+          show_gst_on_invoice: settings.show_gst_on_invoice || false,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -107,6 +117,35 @@ export async function uploadLogo(file: File) {
   } catch (error: any) {
     console.error('Error uploading logo:', error);
     toast.error('Failed to upload logo');
+    return null;
+  }
+}
+
+// Function to handle vehicle damage image upload
+export async function uploadVehicleDamageImage(file: File, vehicleId: string) {
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `vehicle-damage-${vehicleId}-${Date.now()}.${fileExt}`;
+    const filePath = `vehicles/damage/${fileName}`;
+
+    // Upload the file to Supabase Storage
+    const { error: uploadError } = await supabase
+      .storage
+      .from('business_assets')
+      .upload(filePath, file);
+      
+    if (uploadError) throw uploadError;
+    
+    // Get the public URL
+    const { data: urlData } = supabase
+      .storage
+      .from('business_assets')
+      .getPublicUrl(filePath);
+      
+    return urlData.publicUrl;
+  } catch (error: any) {
+    console.error('Error uploading vehicle damage image:', error);
+    toast.error('Failed to upload vehicle damage image');
     return null;
   }
 }
