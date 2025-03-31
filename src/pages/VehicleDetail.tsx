@@ -171,7 +171,7 @@ const VehicleDetail = () => {
   
   const handleStatusUpdate = (jobCardId: string, newStatus: string) => {
     if (updateStatusMutation.isPending) return;
-    updateStatusMutation.mutate({ jobCardId, newStatus });
+    updateStatusMutation.mutate({ jobCardId, status: newStatus });
   };
   
   const resetJobCardForm = () => {
