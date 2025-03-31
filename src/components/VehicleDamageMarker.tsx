@@ -36,6 +36,7 @@ export function VehicleDamageMarker({ onImageSave, existingImageUrl }: VehicleDa
     if (existingImageUrl) {
       const img = new Image();
       img.onload = () => {
+        if (!canvas) return;
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       };
       img.src = existingImageUrl;

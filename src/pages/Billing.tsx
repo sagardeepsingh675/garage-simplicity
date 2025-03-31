@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
@@ -11,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Plus, Filter, FileText, Printer, ReceiptText, CreditCard, Calendar, Search } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { printInvoice } from '@/services/billingService';
-import { getBusinessSettings } from '@/services/businessSettingsService';
+import { getBusinessSettings, BusinessSettings } from '@/services/businessSettingsService';
 import { BillingForm } from '@/components/BillingForm';
 
 // Import from service
@@ -40,7 +41,7 @@ const Billing = () => {
   const filteredInvoices = React.useMemo(() => {
     if (!invoicesQuery.data) return [];
     
-    return invoicesQuery.data.filter((invoice: any) => {
+    return (invoicesQuery.data as any[]).filter((invoice: any) => {
       // Filter by search query
       const searchLower = searchQuery.toLowerCase();
       const matchesSearch = !searchQuery || 
@@ -99,9 +100,10 @@ const Billing = () => {
       let showGst = false;
       let gstPercentage = 0;
       
-      if (businessSettings?.show_gst_on_invoice && businessSettings?.gst_percentage) {
+      const typedBusinessSettings = businessSettings as BusinessSettings;
+      if (typedBusinessSettings?.show_gst_on_invoice && typedBusinessSettings?.gst_percentage) {
         showGst = true;
-        gstPercentage = businessSettings.gst_percentage;
+        gstPercentage = typedBusinessSettings.gst_percentage;
         gstAmount = (invoice.total_amount * gstPercentage) / 100;
       }
 
@@ -209,12 +211,12 @@ const Billing = () => {
           <div class="invoice-container">
             <div class="invoice-header">
               <div class="business-details">
-                <h1 class="invoice-title">${businessSettings?.business_name || 'Auto Garage'}</h1>
-                <p>${businessSettings?.business_address || ''}</p>
-                <p>Phone: ${businessSettings?.business_phone || ''}</p>
-                ${businessSettings?.gst_number ? `<p>GST: ${businessSettings.gst_number}</p>` : ''}
+                <h1 class="invoice-title">${typedBusinessSettings?.business_name || 'Auto Garage'}</h1>
+                <p>${typedBusinessSettings?.business_address || ''}</p>
+                <p>Phone: ${typedBusinessSettings?.business_phone || ''}</p>
+                ${typedBusinessSettings?.gst_number ? `<p>GST: ${typedBusinessSettings.gst_number}</p>` : ''}
               </div>
-              ${businessSettings?.logo_url ? `<img src="${businessSettings.logo_url}" class="logo" alt="Business Logo">` : ''}
+              ${typedBusinessSettings?.logo_url ? `<img src="${typedBusinessSettings.logo_url}" class="logo" alt="Business Logo">` : ''}
             </div>
             
             <div class="invoice-title">INVOICE ${invoice.invoice_number || `#${invoice.id.substring(0, 8)}`}</div>

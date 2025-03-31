@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
@@ -40,6 +39,28 @@ const Settings = () => {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   
+  // Query for fetching business settings
+  const businessSettingsQuery = useQuery({
+    queryKey: ['businessSettings'],
+    queryFn: getBusinessSettings
+  });
+  
+  // Update business settings when data is fetched
+  useEffect(() => {
+    if (businessSettingsQuery.data) {
+      const data = businessSettingsQuery.data as BusinessSettings;
+      setBusinessSettings({
+        ...data,
+        invoice_prefix: data.invoice_prefix || 'INV',
+        next_invoice_number: data.next_invoice_number || 1001,
+        gst_number: data.gst_number || '',
+        gst_percentage: data.gst_percentage || 0,
+        show_gst_on_invoice: data.show_gst_on_invoice || false
+      });
+      setLogoPreview(data.logo_url || null);
+    }
+  }, [businessSettingsQuery.data]);
+  
   // Staff Management State
   const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
   const [isEditStaffOpen, setIsEditStaffOpen] = useState(false);
@@ -66,33 +87,6 @@ const Settings = () => {
     { value: 'staff', label: 'Staff Management' },
     { value: 'settings', label: 'Settings' }
   ];
-  
-  // Query for fetching business settings
-  const businessSettingsQuery = useQuery({
-    queryKey: ['businessSettings'],
-    queryFn: getBusinessSettings
-  });
-  
-  // Update business settings when data is fetched
-  useEffect(() => {
-    if (businessSettingsQuery.data) {
-      setBusinessSettings({
-        ...businessSettingsQuery.data,
-        invoice_prefix: businessSettingsQuery.data.invoice_prefix || 'INV',
-        next_invoice_number: businessSettingsQuery.data.next_invoice_number || 1001,
-        gst_number: businessSettingsQuery.data.gst_number || '',
-        gst_percentage: businessSettingsQuery.data.gst_percentage || 0,
-        show_gst_on_invoice: businessSettingsQuery.data.show_gst_on_invoice || false
-      });
-      setLogoPreview(businessSettingsQuery.data.logo_url || null);
-    }
-  }, [businessSettingsQuery.data]);
-  
-  // Query for fetching staff users
-  const staffUsersQuery = useQuery({
-    queryKey: ['staffUsers'],
-    queryFn: getStaffUsers
-  });
   
   // Mutation for updating business settings
   const updateBusinessSettingsMutation = useMutation({
