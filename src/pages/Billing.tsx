@@ -78,7 +78,7 @@ const Billing = () => {
       }
 
       const { invoice, customer, businessSettings } = data;
-      const typedInvoice = invoice as any; // Use any here to bypass TypeScript's strict checking
+      const typedInvoice = invoice as any; // Use any type to bypass TypeScript's strict checking
 
       // Create a new window for printing
       const printWindow = window.open('', '_blank');

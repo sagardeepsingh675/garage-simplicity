@@ -34,7 +34,6 @@ const Settings = () => {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Staff management state
   const [staffDialogOpen, setStaffDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
@@ -46,13 +45,11 @@ const Settings = () => {
     is_active: true
   });
 
-  // Fetch business settings
   const { data: fetchedSettings, isLoading: isLoadingSettings, refetch: refetchSettings } = useQuery({
     queryKey: ['businessSettings'],
     queryFn: getBusinessSettings
   });
 
-  // Effect to update state when settings data is fetched
   useEffect(() => {
     if (fetchedSettings) {
       setBusinessSettings({
@@ -61,28 +58,25 @@ const Settings = () => {
         business_address: fetchedSettings.business_address || '',
         business_phone: fetchedSettings.business_phone || '',
         logo_url: fetchedSettings.logo_url || '',
-        invoice_prefix: fetchedSettings.invoice_prefix || 'INV',
-        next_invoice_number: fetchedSettings.next_invoice_number || 1001,
-        gst_number: fetchedSettings.gst_number || '',
-        gst_percentage: fetchedSettings.gst_percentage || 18,
-        show_gst_on_invoice: fetchedSettings.show_gst_on_invoice || false
+        invoice_prefix: (fetchedSettings as any).invoice_prefix || 'INV',
+        next_invoice_number: (fetchedSettings as any).next_invoice_number || 1001,
+        gst_number: (fetchedSettings as any).gst_number || '',
+        gst_percentage: (fetchedSettings as any).gst_percentage || 18,
+        show_gst_on_invoice: (fetchedSettings as any).show_gst_on_invoice || false
       });
     }
   }, [fetchedSettings]);
 
-  // Fetch staff
   const { data: staff = [], isLoading: isLoadingStaff, refetch: refetchStaff } = useQuery({
     queryKey: ['staff'],
     queryFn: getStaff
   });
 
-  // Handle logo file selection
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setLogoFile(file);
       
-      // Create preview
       const reader = new FileReader();
       reader.onload = (event) => {
         if (event.target?.result) {
@@ -93,13 +87,11 @@ const Settings = () => {
     }
   };
 
-  // Handle business settings form submission
   const handleBusinessSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     
     try {
-      // Upload logo if a new one was selected
       let logoUrl = businessSettings.logo_url;
       if (logoFile) {
         const uploadedUrl = await uploadLogo(logoFile);
@@ -108,7 +100,6 @@ const Settings = () => {
         }
       }
       
-      // Update business settings
       const updatedSettings = await updateBusinessSettings({
         ...businessSettings,
         logo_url: logoUrl
@@ -128,7 +119,6 @@ const Settings = () => {
     }
   };
 
-  // Handle staff form changes
   const handleStaffFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setStaffForm({
@@ -137,7 +127,6 @@ const Settings = () => {
     });
   };
 
-  // Handle staff active status toggle
   const handleStaffActiveToggle = (checked: boolean) => {
     setStaffForm({
       ...staffForm,
@@ -145,7 +134,6 @@ const Settings = () => {
     });
   };
 
-  // Open staff dialog for creating new staff
   const handleAddStaff = () => {
     setSelectedStaffId(null);
     setStaffForm({
@@ -158,7 +146,6 @@ const Settings = () => {
     setStaffDialogOpen(true);
   };
 
-  // Open staff dialog for editing existing staff
   const handleEditStaff = (staffId: string) => {
     const staffMember = (staff as any[]).find((s: any) => s.id === staffId);
     if (staffMember) {
@@ -174,20 +161,17 @@ const Settings = () => {
     }
   };
 
-  // Open delete confirmation dialog
   const handleDeleteClick = (staffId: string) => {
     setSelectedStaffId(staffId);
     setDeleteDialogOpen(true);
   };
 
-  // Submit staff form (create or update)
   const handleStaffSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     
     try {
       if (selectedStaffId) {
-        // Update existing staff
         await updateStaff(selectedStaffId, {
           name: staffForm.name,
           email: staffForm.email,
@@ -198,7 +182,6 @@ const Settings = () => {
         });
         toast.success('Staff member updated successfully');
       } else {
-        // Create new staff
         await createStaff({
           name: staffForm.name,
           email: staffForm.email,
@@ -220,7 +203,6 @@ const Settings = () => {
     }
   };
 
-  // Delete staff member
   const handleDeleteStaff = async () => {
     if (!selectedStaffId) return;
     
