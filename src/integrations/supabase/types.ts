@@ -15,8 +15,13 @@ export type Database = {
           business_name: string
           business_phone: string
           created_at: string
+          gst_number: string | null
+          gst_percentage: number | null
           id: string
+          invoice_prefix: string | null
           logo_url: string | null
+          next_invoice_number: number | null
+          show_gst_on_invoice: boolean | null
           updated_at: string
         }
         Insert: {
@@ -24,8 +29,13 @@ export type Database = {
           business_name: string
           business_phone: string
           created_at?: string
+          gst_number?: string | null
+          gst_percentage?: number | null
           id?: string
+          invoice_prefix?: string | null
           logo_url?: string | null
+          next_invoice_number?: number | null
+          show_gst_on_invoice?: boolean | null
           updated_at?: string
         }
         Update: {
@@ -33,8 +43,13 @@ export type Database = {
           business_name?: string
           business_phone?: string
           created_at?: string
+          gst_number?: string | null
+          gst_percentage?: number | null
           id?: string
+          invoice_prefix?: string | null
           logo_url?: string | null
+          next_invoice_number?: number | null
+          show_gst_on_invoice?: boolean | null
           updated_at?: string
         }
         Relationships: []
@@ -118,6 +133,7 @@ export type Database = {
           due_date: string | null
           grand_total: number
           id: string
+          invoice_number: string | null
           job_card_id: string | null
           notes: string | null
           parts: Json | null
@@ -128,6 +144,7 @@ export type Database = {
           tax_amount: number
           total_amount: number
           updated_at: string
+          vehicle_damage_image: string | null
         }
         Insert: {
           created_at?: string
@@ -135,6 +152,7 @@ export type Database = {
           due_date?: string | null
           grand_total: number
           id?: string
+          invoice_number?: string | null
           job_card_id?: string | null
           notes?: string | null
           parts?: Json | null
@@ -145,6 +163,7 @@ export type Database = {
           tax_amount: number
           total_amount: number
           updated_at?: string
+          vehicle_damage_image?: string | null
         }
         Update: {
           created_at?: string
@@ -152,6 +171,7 @@ export type Database = {
           due_date?: string | null
           grand_total?: number
           id?: string
+          invoice_number?: string | null
           job_card_id?: string | null
           notes?: string | null
           parts?: Json | null
@@ -162,6 +182,7 @@ export type Database = {
           tax_amount?: number
           total_amount?: number
           updated_at?: string
+          vehicle_damage_image?: string | null
         }
         Relationships: [
           {
