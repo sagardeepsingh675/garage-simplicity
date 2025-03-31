@@ -5,10 +5,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Filter, FileText, Printer, ReceiptText, CreditCard, Calendar, Search } from 'lucide-react';
+import { Plus, Filter, FileText, Printer, Search } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { printInvoice } from '@/services/billingService';
 import { getBusinessSettings, BusinessSettings } from '@/services/businessSettingsService';
@@ -41,11 +41,11 @@ const Billing = () => {
   const filteredInvoices = React.useMemo(() => {
     if (!invoicesQuery.data) return [];
     
-    return (invoicesQuery.data as any[]).filter((invoice: any) => {
+    return (invoicesQuery.data as Invoice[]).filter((invoice: Invoice) => {
       // Filter by search query
       const searchLower = searchQuery.toLowerCase();
       const matchesSearch = !searchQuery || 
-        (invoice.customer?.name && invoice.customer.name.toLowerCase().includes(searchLower)) ||
+        (invoice.customers?.name && invoice.customers.name.toLowerCase().includes(searchLower)) ||
         (invoice.invoice_number && invoice.invoice_number.toLowerCase().includes(searchLower)) ||
         (invoice.id && invoice.id.toLowerCase().includes(searchLower));
       
@@ -113,7 +113,7 @@ const Billing = () => {
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Invoice ${invoice.invoice_number || invoice.id}</title>
+          <title>Invoice ${typedInvoice.invoice_number || typedInvoice.id}</title>
           <style>
             body {
               font-family: Arial, sans-serif;
@@ -220,7 +220,7 @@ const Billing = () => {
               ${typedBusinessSettings?.logo_url ? `<img src="${typedBusinessSettings.logo_url}" class="logo" alt="Business Logo">` : ''}
             </div>
             
-            <div class="invoice-title">INVOICE ${invoice.invoice_number || `#${invoice.id.substring(0, 8)}`}</div>
+            <div class="invoice-title">INVOICE ${typedInvoice.invoice_number || `#${typedInvoice.id.substring(0, 8)}`}</div>
             
             <div class="invoice-details">
               <div class="invoice-details-grid">
@@ -245,7 +245,7 @@ const Billing = () => {
               <p>Email: ${customer.email || ''}</p>
             </div>
             
-            ${invoice.services && Array.isArray(invoice.services) && invoice.services.length > 0 ? `
+            ${typedInvoice.services && Array.isArray(typedInvoice.services) && typedInvoice.services.length > 0 ? `
             <h3>Services</h3>
             <table>
               <thead>
@@ -257,7 +257,7 @@ const Billing = () => {
                 </tr>
               </thead>
               <tbody>
-                ${invoice.services.map((service: any) => `
+                ${typedInvoice.services.map((service: any) => `
                 <tr>
                   <td>${service.name}</td>
                   <td>${service.hours}</td>
@@ -269,7 +269,7 @@ const Billing = () => {
             </table>
             ` : ''}
             
-            ${invoice.parts && Array.isArray(invoice.parts) && invoice.parts.length > 0 ? `
+            ${typedInvoice.parts && Array.isArray(typedInvoice.parts) && typedInvoice.parts.length > 0 ? `
             <h3>Parts</h3>
             <table>
               <thead>
@@ -281,7 +281,7 @@ const Billing = () => {
                 </tr>
               </thead>
               <tbody>
-                ${invoice.parts.map((part: any) => `
+                ${typedInvoice.parts.map((part: any) => `
                 <tr>
                   <td>${part.name}</td>
                   <td>${part.quantity}</td>
@@ -312,17 +312,17 @@ const Billing = () => {
               </table>
             </div>
             
-            ${invoice.notes ? `
+            ${typedInvoice.notes ? `
             <div class="notes">
               <h3>Notes:</h3>
-              <p>${invoice.notes}</p>
+              <p>${typedInvoice.notes}</p>
             </div>
             ` : ''}
             
-            ${invoice.vehicle_damage_image ? `
+            ${typedInvoice.vehicle_damage_image ? `
             <div>
               <h3>Vehicle Damage Assessment:</h3>
-              <img src="${invoice.vehicle_damage_image}" class="damage-image" alt="Vehicle Damage">
+              <img src="${typedInvoice.vehicle_damage_image}" class="damage-image" alt="Vehicle Damage">
             </div>
             ` : ''}
             

@@ -52,7 +52,16 @@ export async function createInvoice(invoice: Invoice) {
       await supabase
         .from('business_settings')
         .update({
-          next_invoice_number: nextNumber + 1
+          next_invoice_number: nextNumber + 1,
+          // Include all fields to avoid type errors
+          business_name: businessSettings.business_name,
+          business_address: businessSettings.business_address,
+          business_phone: businessSettings.business_phone,
+          logo_url: businessSettings.logo_url,
+          invoice_prefix: businessSettings.invoice_prefix,
+          gst_number: businessSettings.gst_number,
+          gst_percentage: businessSettings.gst_percentage,
+          show_gst_on_invoice: businessSettings.show_gst_on_invoice
         })
         .eq('id', businessSettings.id);
     }

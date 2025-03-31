@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -14,7 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from '@/lib/toast';
 import { Building, User, Upload, Users, Trash2, Plus, Settings as SettingsIcon } from 'lucide-react';
 import { getBusinessSettings, updateBusinessSettings, uploadLogo, BusinessSettings } from '@/services/businessSettingsService';
-import { getAllStaff, createStaff, updateStaff, deleteStaff } from '@/services/staffService';
+import { getStaff, createStaff, updateStaff, deleteStaff } from '@/services/staffService';
 import { InvoiceSettings } from '@/components/InvoiceSettings';
 
 const Settings = () => {
@@ -49,29 +49,31 @@ const Settings = () => {
   // Fetch business settings
   const { data: fetchedSettings, isLoading: isLoadingSettings, refetch: refetchSettings } = useQuery({
     queryKey: ['businessSettings'],
-    queryFn: getBusinessSettings,
-    onSuccess: (data) => {
-      if (data) {
-        setBusinessSettings({
-          id: data.id,
-          business_name: data.business_name || '',
-          business_address: data.business_address || '',
-          business_phone: data.business_phone || '',
-          logo_url: data.logo_url || '',
-          invoice_prefix: data.invoice_prefix || 'INV',
-          next_invoice_number: data.next_invoice_number || 1001,
-          gst_number: data.gst_number || '',
-          gst_percentage: data.gst_percentage || 18,
-          show_gst_on_invoice: data.show_gst_on_invoice || false
-        });
-      }
-    }
+    queryFn: getBusinessSettings
   });
+
+  // Effect to update state when settings data is fetched
+  useEffect(() => {
+    if (fetchedSettings) {
+      setBusinessSettings({
+        id: fetchedSettings.id,
+        business_name: fetchedSettings.business_name || '',
+        business_address: fetchedSettings.business_address || '',
+        business_phone: fetchedSettings.business_phone || '',
+        logo_url: fetchedSettings.logo_url || '',
+        invoice_prefix: fetchedSettings.invoice_prefix || 'INV',
+        next_invoice_number: fetchedSettings.next_invoice_number || 1001,
+        gst_number: fetchedSettings.gst_number || '',
+        gst_percentage: fetchedSettings.gst_percentage || 18,
+        show_gst_on_invoice: fetchedSettings.show_gst_on_invoice || false
+      });
+    }
+  }, [fetchedSettings]);
 
   // Fetch staff
   const { data: staff = [], isLoading: isLoadingStaff, refetch: refetchStaff } = useQuery({
     queryKey: ['staff'],
-    queryFn: getAllStaff
+    queryFn: getStaff
   });
 
   // Handle logo file selection
@@ -158,7 +160,7 @@ const Settings = () => {
 
   // Open staff dialog for editing existing staff
   const handleEditStaff = (staffId: string) => {
-    const staffMember = staff.find((s: any) => s.id === staffId);
+    const staffMember = (staff as any[]).find((s: any) => s.id === staffId);
     if (staffMember) {
       setSelectedStaffId(staffId);
       setStaffForm({
@@ -186,11 +188,25 @@ const Settings = () => {
     try {
       if (selectedStaffId) {
         // Update existing staff
-        await updateStaff(selectedStaffId, staffForm);
+        await updateStaff(selectedStaffId, {
+          name: staffForm.name,
+          email: staffForm.email,
+          phone: staffForm.phone,
+          role: staffForm.role,
+          active: staffForm.is_active,
+          specialty: ''
+        });
         toast.success('Staff member updated successfully');
       } else {
         // Create new staff
-        await createStaff(staffForm);
+        await createStaff({
+          name: staffForm.name,
+          email: staffForm.email,
+          phone: staffForm.phone,
+          role: staffForm.role,
+          active: staffForm.is_active,
+          specialty: ''
+        });
         toast.success('Staff member added successfully');
       }
       
@@ -390,7 +406,7 @@ const Settings = () => {
                       </TableRow>
                     )}
                     
-                    {!isLoadingStaff && staff.length === 0 && (
+                    {!isLoadingStaff && (staff as any[]).length === 0 && (
                       <TableRow>
                         <TableCell colSpan={5} className="h-24 text-center">
                           No staff found
@@ -398,7 +414,7 @@ const Settings = () => {
                       </TableRow>
                     )}
                     
-                    {!isLoadingStaff && staff.length > 0 && staff.map((staffMember: any) => (
+                    {!isLoadingStaff && (staff as any[]).length > 0 && (staff as any[]).map((staffMember: any) => (
                       <TableRow key={staffMember.id}>
                         <TableCell className="font-medium">
                           {staffMember.name}
@@ -486,7 +502,6 @@ const Settings = () => {
         </Tabs>
       </div>
 
-      {/* Staff Dialog */}
       <Dialog open={staffDialogOpen} onOpenChange={setStaffDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -560,7 +575,6 @@ const Settings = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
