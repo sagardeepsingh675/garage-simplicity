@@ -33,6 +33,9 @@ export type Invoice = {
       year: number;
     }
   };
+  // Add missing properties to match what's used in Billing.tsx
+  invoice_number?: string;
+  vehicle_damage_image?: string;
   // Add vehicle_id for type compatibility with existing code, but we won't send it to database
   vehicle_id?: string;
 }
@@ -56,4 +59,7 @@ export type SupabaseInvoice = SupabaseData & {
       year: number;
     }
   };
+  // Add these properties to SupabaseInvoice as well
+  invoice_number?: string;
+  vehicle_damage_image?: string;
 }
