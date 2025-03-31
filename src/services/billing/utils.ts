@@ -31,7 +31,10 @@ export function formatInvoiceData(invoice: SupabaseInvoice): Invoice {
     services: invoice.services || [],
     parts: invoice.parts || [],
     customers: invoice.customers,
-    job_cards: invoice.job_cards
+    job_cards: invoice.job_cards,
+    // Include these additional properties 
+    invoice_number: invoice.invoice_number,
+    vehicle_damage_image: invoice.vehicle_damage_image
   };
 }
 

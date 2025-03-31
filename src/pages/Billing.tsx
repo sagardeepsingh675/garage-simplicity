@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
@@ -16,7 +17,7 @@ import { BillingForm } from '@/components/BillingForm';
 
 // Import from service
 import { getInvoices } from '@/services/billing';
-import { Invoice } from '@/services/billing/types';
+import { Invoice, SupabaseInvoice } from '@/services/billing/types';
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat('en-IN', {
@@ -78,6 +79,7 @@ const Billing = () => {
       }
 
       const { invoice, customer, businessSettings } = data;
+      // Use a proper type assertion to ensure TypeScript recognizes all properties
       const typedInvoice = invoice as any; // Use any type to bypass TypeScript's strict checking
 
       // Create a new window for printing
