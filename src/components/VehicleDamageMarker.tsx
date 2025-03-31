@@ -52,13 +52,13 @@ export function VehicleDamageMarker({ onImageSave, existingImageUrl }: VehicleDa
         // Draw top view of car
         ctx.beginPath();
         // Car outline (oval shape)
-        ctx.ellipse(canvas.width / 2, canvas.height / 2, canvas.width / 3, canvas.height / 2.5, 0, 0, 2 * Math.PI);
+        ctx.ellipse(ctx.canvas.width / 2, ctx.canvas.height / 2, ctx.canvas.width / 3, ctx.canvas.height / 2.5, 0, 0, 2 * Math.PI);
         // Windshield
-        ctx.moveTo(canvas.width / 2 - 60, canvas.height / 2 - 50);
-        ctx.lineTo(canvas.width / 2 + 60, canvas.height / 2 - 50);
+        ctx.moveTo(ctx.canvas.width / 2 - 60, ctx.canvas.height / 2 - 50);
+        ctx.lineTo(ctx.canvas.width / 2 + 60, ctx.canvas.height / 2 - 50);
         // Rear window
-        ctx.moveTo(canvas.width / 2 - 60, canvas.height / 2 + 50);
-        ctx.lineTo(canvas.width / 2 + 60, canvas.height / 2 + 50);
+        ctx.moveTo(ctx.canvas.width / 2 - 60, ctx.canvas.height / 2 + 50);
+        ctx.lineTo(ctx.canvas.width / 2 + 60, ctx.canvas.height / 2 + 50);
         ctx.stroke();
         break;
         
@@ -66,19 +66,19 @@ export function VehicleDamageMarker({ onImageSave, existingImageUrl }: VehicleDa
         // Draw side view of car
         ctx.beginPath();
         // Car body
-        ctx.moveTo(50, canvas.height / 2 + 50);
-        ctx.lineTo(canvas.width - 50, canvas.height / 2 + 50); // Bottom line
-        ctx.lineTo(canvas.width - 80, canvas.height / 2 - 10); // Rear slope
-        ctx.lineTo(canvas.width - 150, canvas.height / 2 - 40); // Roof back
-        ctx.lineTo(150, canvas.height / 2 - 40); // Roof front
-        ctx.lineTo(80, canvas.height / 2 - 10); // Windshield
-        ctx.lineTo(50, canvas.height / 2 + 50); // Close the path
+        ctx.moveTo(50, ctx.canvas.height / 2 + 50);
+        ctx.lineTo(ctx.canvas.width - 50, ctx.canvas.height / 2 + 50); // Bottom line
+        ctx.lineTo(ctx.canvas.width - 80, ctx.canvas.height / 2 - 10); // Rear slope
+        ctx.lineTo(ctx.canvas.width - 150, ctx.canvas.height / 2 - 40); // Roof back
+        ctx.lineTo(150, ctx.canvas.height / 2 - 40); // Roof front
+        ctx.lineTo(80, ctx.canvas.height / 2 - 10); // Windshield
+        ctx.lineTo(50, ctx.canvas.height / 2 + 50); // Close the path
         
         // Wheels
-        ctx.moveTo(100, canvas.height / 2 + 50);
-        ctx.arc(100, canvas.height / 2 + 50, 30, 0, 2 * Math.PI); // Front wheel
-        ctx.moveTo(canvas.width - 100, canvas.height / 2 + 50);
-        ctx.arc(canvas.width - 100, canvas.height / 2 + 50, 30, 0, 2 * Math.PI); // Rear wheel
+        ctx.moveTo(100, ctx.canvas.height / 2 + 50);
+        ctx.arc(100, ctx.canvas.height / 2 + 50, 30, 0, 2 * Math.PI); // Front wheel
+        ctx.moveTo(ctx.canvas.width - 100, ctx.canvas.height / 2 + 50);
+        ctx.arc(ctx.canvas.width - 100, ctx.canvas.height / 2 + 50, 30, 0, 2 * Math.PI); // Rear wheel
         
         ctx.stroke();
         break;
@@ -87,25 +87,25 @@ export function VehicleDamageMarker({ onImageSave, existingImageUrl }: VehicleDa
         // Draw front view of car
         ctx.beginPath();
         // Car body
-        ctx.rect(canvas.width / 2 - 100, canvas.height / 2 - 40, 200, 80);
+        ctx.rect(ctx.canvas.width / 2 - 100, ctx.canvas.height / 2 - 40, 200, 80);
         
         // Hood
-        ctx.moveTo(canvas.width / 2 - 100, canvas.height / 2 - 40);
-        ctx.lineTo(canvas.width / 2 - 120, canvas.height / 2 - 60);
-        ctx.lineTo(canvas.width / 2 + 120, canvas.height / 2 - 60);
-        ctx.lineTo(canvas.width / 2 + 100, canvas.height / 2 - 40);
+        ctx.moveTo(ctx.canvas.width / 2 - 100, ctx.canvas.height / 2 - 40);
+        ctx.lineTo(ctx.canvas.width / 2 - 120, ctx.canvas.height / 2 - 60);
+        ctx.lineTo(ctx.canvas.width / 2 + 120, ctx.canvas.height / 2 - 60);
+        ctx.lineTo(ctx.canvas.width / 2 + 100, ctx.canvas.height / 2 - 40);
         
         // Windshield
-        ctx.moveTo(canvas.width / 2 - 80, canvas.height / 2 - 40);
-        ctx.lineTo(canvas.width / 2 - 60, canvas.height / 2 - 80);
-        ctx.lineTo(canvas.width / 2 + 60, canvas.height / 2 - 80);
-        ctx.lineTo(canvas.width / 2 + 80, canvas.height / 2 - 40);
+        ctx.moveTo(ctx.canvas.width / 2 - 80, ctx.canvas.height / 2 - 40);
+        ctx.lineTo(ctx.canvas.width / 2 - 60, ctx.canvas.height / 2 - 80);
+        ctx.lineTo(ctx.canvas.width / 2 + 60, ctx.canvas.height / 2 - 80);
+        ctx.lineTo(ctx.canvas.width / 2 + 80, ctx.canvas.height / 2 - 40);
         
         // Headlights
-        ctx.moveTo(canvas.width / 2 - 80, canvas.height / 2);
-        ctx.rect(canvas.width / 2 - 90, canvas.height / 2 - 20, 40, 40);
-        ctx.moveTo(canvas.width / 2 + 80, canvas.height / 2);
-        ctx.rect(canvas.width / 2 + 50, canvas.height / 2 - 20, 40, 40);
+        ctx.moveTo(ctx.canvas.width / 2 - 80, ctx.canvas.height / 2);
+        ctx.rect(ctx.canvas.width / 2 - 90, ctx.canvas.height / 2 - 20, 40, 40);
+        ctx.moveTo(ctx.canvas.width / 2 + 80, ctx.canvas.height / 2);
+        ctx.rect(ctx.canvas.width / 2 + 50, ctx.canvas.height / 2 - 20, 40, 40);
         
         ctx.stroke();
         break;

@@ -15,7 +15,7 @@ import { getBusinessSettings } from '@/services/businessSettingsService';
 import { BillingForm } from '@/components/BillingForm';
 
 // Import from service
-import { getAllInvoices } from '@/services/billing';
+import { getInvoices } from '@/services/billing';
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat('en-IN', {
@@ -33,14 +33,14 @@ const Billing = () => {
   // Query for fetching all invoices
   const invoicesQuery = useQuery({
     queryKey: ['invoices'],
-    queryFn: getAllInvoices
+    queryFn: getInvoices
   });
 
   // Filtered invoices based on search and filter
   const filteredInvoices = React.useMemo(() => {
     if (!invoicesQuery.data) return [];
     
-    return invoicesQuery.data.filter(invoice => {
+    return invoicesQuery.data.filter((invoice: any) => {
       // Filter by search query
       const searchLower = searchQuery.toLowerCase();
       const matchesSearch = !searchQuery || 
@@ -228,7 +228,7 @@ const Billing = () => {
                 </div>
                 <div>
                   <p><strong>Invoice Number:</strong> ${invoice.invoice_number || invoice.id.substring(0, 8)}</p>
-                  ${invoice.job_card_id ? `<p><strong>Job Card:</strong> #${invoice.job_card_id.id.substring(0, 8)}</p>` : ''}
+                  ${invoice.job_card_id ? `<p><strong>Job Card:</strong> #${invoice.job_card_id.id?.substring(0, 8) || ''}</p>` : ''}
                   ${invoice.payment_method ? `<p><strong>Payment Method:</strong> ${invoice.payment_method}</p>` : ''}
                 </div>
               </div>
@@ -242,7 +242,7 @@ const Billing = () => {
               <p>Email: ${customer.email || ''}</p>
             </div>
             
-            ${invoice.services && invoice.services.length > 0 ? `
+            ${invoice.services && Array.isArray(invoice.services) && invoice.services.length > 0 ? `
             <h3>Services</h3>
             <table>
               <thead>
@@ -254,7 +254,7 @@ const Billing = () => {
                 </tr>
               </thead>
               <tbody>
-                ${invoice.services.map(service => `
+                ${invoice.services.map((service: any) => `
                 <tr>
                   <td>${service.name}</td>
                   <td>${service.hours}</td>
@@ -266,7 +266,7 @@ const Billing = () => {
             </table>
             ` : ''}
             
-            ${invoice.parts && invoice.parts.length > 0 ? `
+            ${invoice.parts && Array.isArray(invoice.parts) && invoice.parts.length > 0 ? `
             <h3>Parts</h3>
             <table>
               <thead>
@@ -278,7 +278,7 @@ const Billing = () => {
                 </tr>
               </thead>
               <tbody>
-                ${invoice.parts.map(part => `
+                ${invoice.parts.map((part: any) => `
                 <tr>
                   <td>${part.name}</td>
                   <td>${part.quantity}</td>
@@ -421,7 +421,7 @@ const Billing = () => {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredInvoices.map((invoice) => (
+                      filteredInvoices.map((invoice: any) => (
                         <TableRow key={invoice.id}>
                           <TableCell className="font-medium">{invoice.invoice_number || invoice.id.substring(0, 8)}</TableCell>
                           <TableCell>{invoice.customer?.name || 'Unknown'}</TableCell>
@@ -438,7 +438,7 @@ const Billing = () => {
                           <TableCell>{formatCurrency(invoice.grand_total || 0)}</TableCell>
                           <TableCell>
                             <Badge variant={
-                              invoice.status === 'paid' ? 'success' :
+                              invoice.status === 'paid' ? 'default' :
                               invoice.status === 'unpaid' ? 'outline' :
                               invoice.status === 'overdue' ? 'destructive' : 'secondary'
                             }>
@@ -493,7 +493,7 @@ const Billing = () => {
                       <TableRow>
                         <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">Loading invoices...</TableCell>
                       </TableRow>
-                    ) : filteredInvoices.filter(i => i.status === 'unpaid').length === 0 ? (
+                    ) : filteredInvoices.filter((i: any) => i.status === 'unpaid').length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
                           No unpaid invoices found
@@ -501,8 +501,8 @@ const Billing = () => {
                       </TableRow>
                     ) : (
                       filteredInvoices
-                        .filter(i => i.status === 'unpaid')
-                        .map((invoice) => (
+                        .filter((i: any) => i.status === 'unpaid')
+                        .map((invoice: any) => (
                           <TableRow key={invoice.id}>
                             <TableCell className="font-medium">{invoice.invoice_number || invoice.id.substring(0, 8)}</TableCell>
                             <TableCell>{invoice.customer?.name || 'Unknown'}</TableCell>
@@ -565,7 +565,7 @@ const Billing = () => {
                       <TableRow>
                         <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">Loading invoices...</TableCell>
                       </TableRow>
-                    ) : filteredInvoices.filter(i => i.status === 'paid').length === 0 ? (
+                    ) : filteredInvoices.filter((i: any) => i.status === 'paid').length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
                           No paid invoices found
@@ -573,8 +573,8 @@ const Billing = () => {
                       </TableRow>
                     ) : (
                       filteredInvoices
-                        .filter(i => i.status === 'paid')
-                        .map((invoice) => (
+                        .filter((i: any) => i.status === 'paid')
+                        .map((invoice: any) => (
                           <TableRow key={invoice.id}>
                             <TableCell className="font-medium">{invoice.invoice_number || invoice.id.substring(0, 8)}</TableCell>
                             <TableCell>{invoice.customer?.name || 'Unknown'}</TableCell>
@@ -637,7 +637,7 @@ const Billing = () => {
                       <TableRow>
                         <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">Loading invoices...</TableCell>
                       </TableRow>
-                    ) : filteredInvoices.filter(i => i.status === 'overdue').length === 0 ? (
+                    ) : filteredInvoices.filter((i: any) => i.status === 'overdue').length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
                           No overdue invoices found
@@ -645,8 +645,8 @@ const Billing = () => {
                       </TableRow>
                     ) : (
                       filteredInvoices
-                        .filter(i => i.status === 'overdue')
-                        .map((invoice) => (
+                        .filter((i: any) => i.status === 'overdue')
+                        .map((invoice: any) => (
                           <TableRow key={invoice.id}>
                             <TableCell className="font-medium">{invoice.invoice_number || invoice.id.substring(0, 8)}</TableCell>
                             <TableCell>{invoice.customer?.name || 'Unknown'}</TableCell>
@@ -697,7 +697,7 @@ const Billing = () => {
           <DialogHeader>
             <DialogTitle>Create Invoice</DialogTitle>
           </DialogHeader>
-          <BillingForm onInvoiceCreated={handleInvoiceCreated} />
+          <BillingForm jobCardId="" onSuccess={handleInvoiceCreated} />
         </DialogContent>
       </Dialog>
 
@@ -721,9 +721,8 @@ const Billing = () => {
                 </Button>
               </div>
               
-              {invoicesQuery.data?.find(i => i.id === selectedInvoiceId) ? (
+              {invoicesQuery.data && (invoicesQuery.data as any[]).find((i: any) => i.id === selectedInvoiceId) ? (
                 <div className="space-y-6">
-                  {/* Invoice details would be rendered here */}
                   <p className="text-center text-muted-foreground">
                     Use the print button to view the full invoice
                   </p>

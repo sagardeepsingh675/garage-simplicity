@@ -1,5 +1,6 @@
+
 import { supabase } from "@/integrations/supabase/client";
-import { getBusinessSettings } from "@/services/businessSettingsService";
+import { getBusinessSettings, BusinessSettings } from "@/services/businessSettingsService";
 
 export type InvoiceItem = {
   id: string;
@@ -38,7 +39,7 @@ export type Invoice = {
 export async function createInvoice(invoice: Invoice) {
   try {
     // Get business settings to get next invoice number
-    const businessSettings = await getBusinessSettings();
+    const businessSettings = await getBusinessSettings() as BusinessSettings;
     let invoiceNumber = 'INV-1001';
     
     if (businessSettings) {
