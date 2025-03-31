@@ -34,38 +34,32 @@ export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Fetch inventory items
   const { data: inventoryItems = [] } = useQuery({
     queryKey: ['inventory'],
     queryFn: getInventoryItems
   });
 
-  // Fetch job card details
   const { data: jobCard, isLoading: isJobCardLoading } = useQuery({
     queryKey: ['jobCard', jobCardId],
     queryFn: () => getJobCardById(jobCardId),
     enabled: !!jobCardId
   });
 
-  // Filter inventory items based on search term
   const filteredInventoryItems = inventoryItems.filter((item: any) => 
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (item.part_number && item.part_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (item.brand && item.brand.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  // Add inventory item to the bill
   const addInventoryItem = (itemId: string) => {
     const item = inventoryItems.find((i: any) => i.id === itemId);
     if (!item) return;
 
-    // Check if already added
     if (selectedItems.some(i => i.inventoryId === itemId)) {
       toast.error('This item is already added to the bill');
       return;
     }
 
-    // Check inventory quantity
     if (item.quantity <= 0) {
       toast.error('This item is out of stock');
       return;
@@ -84,7 +78,6 @@ export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
     setSearchTerm('');
   };
 
-  // Add service to the bill
   const addService = () => {
     setServices([
       ...services,
@@ -96,17 +89,14 @@ export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
     ]);
   };
 
-  // Remove item from the bill
   const removeItem = (id: string) => {
     setSelectedItems(selectedItems.filter(item => item.id !== id));
   };
 
-  // Remove service from the bill
   const removeService = (index: number) => {
     setServices(services.filter((_, i) => i !== index));
   };
 
-  // Update item quantity
   const updateItemQuantity = (id: string, quantity: number) => {
     const item = selectedItems.find(i => i.id === id);
     if (!item) return;
@@ -114,7 +104,6 @@ export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
     const inventoryItem = inventoryItems.find((i: any) => i.id === item.inventoryId);
     if (!inventoryItem) return;
 
-    // Validate against inventory quantity
     if (quantity > inventoryItem.quantity) {
       toast.error(`Only ${inventoryItem.quantity} units available in inventory`);
       return;
@@ -127,7 +116,6 @@ export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
     );
   };
 
-  // Update service details
   const updateService = (index: number, field: 'name' | 'description' | 'cost', value: string | number) => {
     setServices(
       services.map((service, i) => 
@@ -136,12 +124,11 @@ export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
     );
   };
 
-  // Calculate totals
   const calculateTotals = () => {
     const itemsTotal = selectedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const servicesTotal = services.reduce((sum, service) => sum + (service.cost || 0), 0);
     const subtotal = itemsTotal + servicesTotal;
-    const taxRate = 0.18; // 18% GST
+    const taxRate = 0.18;
     const taxAmount = subtotal * taxRate;
     const grandTotal = subtotal + taxAmount;
 
@@ -156,7 +143,6 @@ export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
 
   const { subtotal, taxAmount, grandTotal } = calculateTotals();
 
-  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -173,7 +159,6 @@ export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
     setLoading(true);
 
     try {
-      // Convert selected items to billing format
       const parts = selectedItems.map(item => ({
         name: item.name,
         quantity: item.quantity,
@@ -181,12 +166,10 @@ export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
         inventory_item_id: item.inventoryId
       }));
 
-      // Make sure we're using the correct status type
       const invoiceStatus: 'pending' | 'paid' | 'overdue' = 'pending';
 
       const invoiceData = {
         customer_id: jobCard.customer_id,
-        vehicle_id: jobCard.vehicle_id,
         job_card_id: jobCard.id,
         total_amount: subtotal,
         tax_amount: taxAmount,

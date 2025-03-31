@@ -4,7 +4,6 @@ import { SupabaseData } from "../types";
 export type Invoice = {
   id: string;
   customer_id: string;
-  vehicle_id: string;
   job_card_id: string;
   total_amount: number;
   tax_amount: number;
@@ -34,6 +33,8 @@ export type Invoice = {
       year: number;
     }
   };
+  // Add vehicle_id for type compatibility with existing code, but we won't send it to database
+  vehicle_id?: string;
 }
 
 export type InvoiceFormData = Omit<Invoice, 'id' | 'created_at' | 'updated_at'>;

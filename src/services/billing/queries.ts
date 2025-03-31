@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { formatInvoiceData } from "./utils";
 import { Invoice, SupabaseInvoice } from "./types";
@@ -72,10 +71,9 @@ export async function insertInvoice(invoice: Omit<Invoice, 'id' | 'created_at' |
     validStatus = invoice.status;
   }
   
-  // Prepare invoice data for insertion
+  // Prepare invoice data for insertion - removing vehicle_id which doesn't exist in the table
   const invoiceToInsert = {
     customer_id: invoice.customer_id,
-    vehicle_id: invoice.vehicle_id,
     job_card_id: invoice.job_card_id,
     total_amount: invoice.total_amount,
     tax_amount: invoice.tax_amount,
