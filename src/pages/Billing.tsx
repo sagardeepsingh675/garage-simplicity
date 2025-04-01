@@ -107,7 +107,7 @@ const Billing = () => {
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Invoice ${typedInvoice.invoice_number || typedInvoice.id}</title>
+          <title>Invoice ${invoice.invoice_number || invoice.id}</title>
           <style>
             body {
               font-family: Arial, sans-serif;
@@ -214,7 +214,7 @@ const Billing = () => {
               ${typedBusinessSettings?.logo_url ? `<img src="${typedBusinessSettings.logo_url}" class="logo" alt="Business Logo">` : ''}
             </div>
             
-            <div class="invoice-title">INVOICE ${typedInvoice.invoice_number || `#${typedInvoice.id.substring(0, 8)}`}</div>
+            <div class="invoice-title">INVOICE ${invoice.invoice_number || `#${invoice.id.substring(0, 8)}`}</div>
             
             <div class="invoice-details">
               <div class="invoice-details-grid">
@@ -239,7 +239,7 @@ const Billing = () => {
               <p>Email: ${customer.email || ''}</p>
             </div>
             
-            ${typedInvoice.services && Array.isArray(typedInvoice.services) && typedInvoice.services.length > 0 ? `
+            ${invoice.services && Array.isArray(invoice.services) && invoice.services.length > 0 ? `
             <h3>Services</h3>
             <table>
               <thead>
@@ -251,7 +251,7 @@ const Billing = () => {
                 </tr>
               </thead>
               <tbody>
-                ${typedInvoice.services.map((service: any) => `
+                ${invoice.services.map((service: any) => `
                 <tr>
                   <td>${service.name}</td>
                   <td>${service.hours}</td>
@@ -263,7 +263,7 @@ const Billing = () => {
             </table>
             ` : ''}
             
-            ${typedInvoice.parts && Array.isArray(typedInvoice.parts) && typedInvoice.parts.length > 0 ? `
+            ${invoice.parts && Array.isArray(invoice.parts) && invoice.parts.length > 0 ? `
             <h3>Parts</h3>
             <table>
               <thead>
@@ -275,7 +275,7 @@ const Billing = () => {
                 </tr>
               </thead>
               <tbody>
-                ${typedInvoice.parts.map((part: any) => `
+                ${invoice.parts.map((part: any) => `
                 <tr>
                   <td>${part.name}</td>
                   <td>${part.quantity}</td>
@@ -306,17 +306,17 @@ const Billing = () => {
               </table>
             </div>
             
-            ${typedInvoice.notes ? `
+            ${invoice.notes ? `
             <div class="notes">
               <h3>Notes:</h3>
-              <p>${typedInvoice.notes}</p>
+              <p>${invoice.notes}</p>
             </div>
             ` : ''}
             
-            ${typedInvoice.vehicle_damage_image ? `
+            ${invoice.vehicle_damage_image ? `
             <div>
               <h3>Vehicle Damage Assessment:</h3>
-              <img src="${typedInvoice.vehicle_damage_image}" class="damage-image" alt="Vehicle Damage">
+              <img src="${invoice.vehicle_damage_image}" class="damage-image" alt="Vehicle Damage">
             </div>
             ` : ''}
             

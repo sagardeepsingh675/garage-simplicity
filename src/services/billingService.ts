@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { getBusinessSettings, BusinessSettings } from "@/services/businessSettingsService";
 
@@ -211,7 +212,12 @@ export async function printInvoice(invoiceId: string): Promise<PrintInvoiceData>
     const businessSettings = await getBusinessSettings();
     
     return {
-      invoice,
+      invoice: {
+        ...invoice,
+        // Ensure parts and services are arrays
+        parts: Array.isArray(invoice.parts) ? invoice.parts : [],
+        services: Array.isArray(invoice.services) ? invoice.services : []
+      },
       customer,
       businessSettings
     };
