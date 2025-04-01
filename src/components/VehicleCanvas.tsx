@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +12,7 @@ type DamageType = 'dent' | 'scratch';
 interface VehicleCanvasProps {
   vehicleType?: 'sedan' | 'suv' | 'hatchback' | 'truck';
   onSave?: (imageData: string) => void;
+  onChange?: (imageData: string) => void;
   initialImage?: string;
   viewOnly?: boolean;
 }
@@ -20,6 +20,7 @@ interface VehicleCanvasProps {
 export function VehicleCanvas({ 
   vehicleType = 'sedan', 
   onSave, 
+  onChange,
   initialImage,
   viewOnly = false
 }: VehicleCanvasProps) {
@@ -31,8 +32,8 @@ export function VehicleCanvas({
   const [view, setView] = useState<'front' | 'back' | 'left' | 'right' | 'top'>('top');
   
   const damageColors = {
-    dent: 'rgba(255, 0, 0, 0.7)', // Red for dents
-    scratch: 'rgba(0, 0, 255, 0.7)' // Blue for scratches
+    dent: 'rgba(255, 0, 0, 0.7)',
+    scratch: 'rgba(0, 0, 255, 0.7)'
   };
 
   const brushSize = 8;
@@ -45,23 +46,18 @@ export function VehicleCanvas({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw vehicle outline based on type and view
     drawVehicleOutline(ctx, vehicleType, view);
 
-    // Restore any initial image if provided
     if (initialImage) {
       const img = new Image();
       img.onload = () => {
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        // Save this as first history state
         saveToHistory();
       };
       img.src = initialImage;
     } else {
-      // Save initial empty state to history
       saveToHistory();
     }
   }, [vehicleType, view]);
@@ -70,22 +66,17 @@ export function VehicleCanvas({
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 2;
     
-    // Simple vehicle outlines - these would be more detailed in a real app
     if (view === 'top') {
-      // Draw top view of car shape (basic outline)
       ctx.beginPath();
       
       if (type === 'sedan') {
-        // Sedan top view
         const width = ctx.canvas.width;
         const height = ctx.canvas.height;
         const centerX = width / 2;
         const centerY = height / 2;
         
-        // Main body
         ctx.roundRect(width * 0.2, height * 0.15, width * 0.6, height * 0.7, 40);
         
-        // Windows
         ctx.moveTo(width * 0.3, height * 0.3);
         ctx.lineTo(width * 0.45, height * 0.3);
         ctx.lineTo(width * 0.45, height * 0.7);
@@ -98,19 +89,16 @@ export function VehicleCanvas({
         ctx.lineTo(width * 0.55, height * 0.7);
         ctx.lineTo(width * 0.55, height * 0.3);
       } else if (type === 'suv') {
-        // SUV top view (wider)
         const width = ctx.canvas.width;
         const height = ctx.canvas.height;
         
         ctx.roundRect(width * 0.15, height * 0.15, width * 0.7, height * 0.7, 20);
       } else if (type === 'hatchback') {
-        // Hatchback top view (shorter)
         const width = ctx.canvas.width;
         const height = ctx.canvas.height;
         
         ctx.roundRect(width * 0.25, height * 0.2, width * 0.5, height * 0.6, 30);
       } else {
-        // Default generic car shape
         const width = ctx.canvas.width;
         const height = ctx.canvas.height;
         
@@ -119,18 +107,15 @@ export function VehicleCanvas({
       
       ctx.stroke();
       
-      // Add text label for orientation
       ctx.fillStyle = "#888";
       ctx.font = "14px sans-serif";
       ctx.fillText("FRONT", ctx.canvas.width / 2 - 20, 30);
       ctx.fillText("REAR", ctx.canvas.width / 2 - 20, ctx.canvas.height - 15);
     } else {
-      // Other views would be implemented similarly
       ctx.font = "16px sans-serif";
       ctx.fillStyle = "#888";
       ctx.fillText(`${type} - ${view} view (simplified)`, 20, 30);
       
-      // Simple rectangle for other views
       ctx.strokeRect(50, 50, ctx.canvas.width - 100, ctx.canvas.height - 100);
     }
   };
@@ -159,7 +144,6 @@ export function VehicleCanvas({
     } else {
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = eraserSize;
-      // Set composite operation for eraser
       ctx.globalCompositeOperation = 'destination-out';
     }
     
@@ -194,10 +178,8 @@ export function VehicleCanvas({
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       
-      // Reset composite operation
       ctx.globalCompositeOperation = 'source-over';
       
-      // Save to history
       saveToHistory();
     }
   };
@@ -207,7 +189,11 @@ export function VehicleCanvas({
     if (!canvas) return;
     
     const imageData = canvas.toDataURL('image/png');
-    setHistory(prev => [...prev.slice(0, 20), imageData]); // Limit history to 20 steps
+    setHistory(prev => [...prev.slice(0, 20), imageData]);
+    
+    if (onChange) {
+      onChange(imageData);
+    }
   };
   
   const undo = () => {
@@ -219,7 +205,6 @@ export function VehicleCanvas({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    // Remove current state and go back to previous state
     const newHistory = [...history];
     newHistory.pop();
     setHistory(newHistory);
@@ -241,25 +226,28 @@ export function VehicleCanvas({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Redraw vehicle outline
     drawVehicleOutline(ctx, vehicleType, view);
     
-    // Reset history
     saveToHistory();
     toast.info("Canvas has been reset");
   };
   
   const handleSave = () => {
-    if (!onSave) return;
-    
     const canvas = canvasRef.current;
     if (!canvas) return;
     
     const imageData = canvas.toDataURL('image/png');
-    onSave(imageData);
+    
+    if (onSave) {
+      onSave(imageData);
+    }
+    
+    if (onChange) {
+      onChange(imageData);
+    }
+    
     toast.success("Damage marking saved successfully");
   };
 

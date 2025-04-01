@@ -63,14 +63,12 @@ export const AutoBillGenerator: React.FC<AutoBillGeneratorProps> = ({ vehicleDat
     fetchJobCards();
   }, [vehicleData?.id]);
 
-  // Function to calculate subtotal
   useEffect(() => {
     const partsTotal = parts.reduce((acc, part) => acc + (part.quantity * part.price), 0);
     const servicesTotal = services.reduce((acc, service) => acc + (service.hours * service.rate), 0);
     setSubtotal(partsTotal + servicesTotal);
   }, [parts, services]);
 
-  // Handlers for parts
   const addPart = () => setParts([...parts, { name: '', quantity: 1, price: 0 }]);
   const updatePart = (index: number, field: string, value: any) => {
     const newParts = [...parts];
@@ -83,7 +81,6 @@ export const AutoBillGenerator: React.FC<AutoBillGeneratorProps> = ({ vehicleDat
     setParts(newParts);
   };
 
-  // Handlers for services
   const addService = () => setServices([...services, { name: '', hours: 1, rate: 0 }]);
   const updateService = (index: number, field: string, value: any) => {
     const newServices = [...services];
@@ -96,15 +93,12 @@ export const AutoBillGenerator: React.FC<AutoBillGeneratorProps> = ({ vehicleDat
     setServices(newServices);
   };
 
-  // Handle form submission
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Calculate the total including tax
     const taxAmount = isGstEnabled ? subtotal * (gstPercentage / 100) : 0;
     const totalAmount = subtotal + taxAmount;
     
-    // Call the parent component's callback with all the invoice data
     onGenerateBill({
       subtotal,
       taxAmount,
@@ -223,7 +217,7 @@ export const AutoBillGenerator: React.FC<AutoBillGeneratorProps> = ({ vehicleDat
           <CardDescription>Mark any damage to the vehicle</CardDescription>
         </CardHeader>
         <CardContent>
-          <VehicleCanvas vehicleType="sedan" onChange={setDamageImageUrl} />
+          <VehicleCanvas vehicleType="sedan" onSave={setDamageImageUrl} />
         </CardContent>
       </Card>
 
