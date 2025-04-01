@@ -38,7 +38,8 @@ export default function CarAnimation() {
       config={{ mass: 2, tension: 400 }}
       snap={{ mass: 4, tension: 300 }}
     >
-      <Environment preset="city" />
+      {/* Replace Environment preset with a simpler one that doesn't require HDR files */}
+      <Environment preset="sunset" />
       <ambientLight intensity={0.5} />
       <directionalLight position={[10, 10, 5]} intensity={1} />
       <Model />

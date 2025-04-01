@@ -19,6 +19,7 @@ export default function AnimatedGarage() {
         <Canvas
           camera={{ position: [0, 0, 10], fov: 35 }}
           className="w-full h-full rounded-lg shadow-xl"
+          onError={(e) => console.error("Canvas error:", e)}
         >
           <OrbitControls enableZoom={false} />
           <CarAnimation />
