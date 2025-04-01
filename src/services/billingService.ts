@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { getBusinessSettings, BusinessSettings } from "@/services/businessSettingsService";
 
@@ -34,6 +33,36 @@ export type Invoice = {
   services?: InvoiceService[];
   invoice_number?: string;
   vehicle_damage_image?: string;
+};
+
+export type PrintInvoiceData = {
+  invoice: {
+    id: string;
+    customer_id: string;
+    job_card_id: any;
+    total_amount: number;
+    tax_amount: number;
+    grand_total: number;
+    status: string;
+    created_at: string;
+    due_date?: string;
+    payment_date?: string;
+    payment_method?: string;
+    notes?: string;
+    parts?: any[];
+    services?: any[];
+    invoice_number?: string;
+    vehicle_damage_image?: string;
+    updated_at: string;
+  };
+  customer: {
+    id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+  };
+  businessSettings: BusinessSettings | null;
 };
 
 export async function createInvoice(invoice: Invoice) {
@@ -158,7 +187,7 @@ export async function deleteInvoice(id: string) {
   }
 }
 
-export async function printInvoice(invoiceId: string) {
+export async function printInvoice(invoiceId: string): Promise<PrintInvoiceData> {
   try {
     // Get invoice details
     const { data: invoice, error: invoiceError } = await supabase

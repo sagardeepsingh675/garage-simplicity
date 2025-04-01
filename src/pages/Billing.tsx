@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Filter, FileText, Printer, Search } from 'lucide-react';
 import { toast } from '@/lib/toast';
-import { printInvoice } from '@/services/billingService';
+import { printInvoice, PrintInvoiceData } from '@/services/billingService';
 import { getBusinessSettings, BusinessSettings } from '@/services/businessSettingsService';
 import { BillingForm } from '@/components/BillingForm';
 import { getInvoices } from '@/services/billing';
@@ -31,7 +31,6 @@ const Billing = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
 
-  // On component mount, check if there's an invoice ID in the URL
   React.useEffect(() => {
     const invoiceId = searchParams.get('invoice');
     if (invoiceId) {
@@ -39,44 +38,36 @@ const Billing = () => {
     }
   }, [searchParams]);
 
-  // Query for fetching all invoices
   const invoicesQuery = useQuery({
     queryKey: ['invoices'],
     queryFn: getInvoices
   });
 
-  // Filtered invoices based on search and filter
   const filteredInvoices = React.useMemo(() => {
     if (!invoicesQuery.data) return [];
     
     return (invoicesQuery.data as Invoice[]).filter((invoice: Invoice) => {
-      // Filter by search query
       const searchLower = searchQuery.toLowerCase();
       const matchesSearch = !searchQuery || 
         (invoice.customers?.name && invoice.customers.name.toLowerCase().includes(searchLower)) ||
         (invoice.invoice_number && invoice.invoice_number.toLowerCase().includes(searchLower)) ||
         (invoice.id && invoice.id.toLowerCase().includes(searchLower));
       
-      // Filter by status
       const matchesStatus = !filterStatus || invoice.status === filterStatus;
       
       return matchesSearch && matchesStatus;
     });
   }, [invoicesQuery.data, searchQuery, filterStatus]);
 
-  // Handle invoice creation
   const handleCreateInvoice = () => {
     setCreateDialogOpen(true);
   };
 
-  // Handle invoice created
   const handleInvoiceCreated = () => {
     setCreateDialogOpen(false);
-    // Refetch invoices after creating a new one
     invoicesQuery.refetch();
   };
 
-  // Handle print invoice
   const handlePrintInvoice = async (invoiceId: string) => {
     try {
       const data = await printInvoice(invoiceId);
@@ -85,18 +76,14 @@ const Billing = () => {
         return;
       }
 
-      const { invoice, customer, businessSettings } = data;
-      // Use a proper type assertion to ensure TypeScript recognizes all properties
-      const typedInvoice = invoice as any; // Use any type to bypass TypeScript's strict checking
-
-      // Create a new window for printing
+      const { invoice, customer, businessSettings } = data as PrintInvoiceData;
+      
       const printWindow = window.open('', '_blank');
       if (!printWindow) {
         toast.error('Pop-up blocked. Please allow pop-ups for this website.');
         return;
       }
 
-      // Format dates
       const invoiceDate = invoice.created_at 
         ? new Date(invoice.created_at).toLocaleDateString() 
         : 'N/A';
@@ -105,7 +92,6 @@ const Billing = () => {
         ? new Date(invoice.due_date).toLocaleDateString() 
         : 'N/A';
 
-      // Calculate GST if enabled
       let gstAmount = 0;
       let showGst = false;
       let gstPercentage = 0;
@@ -117,7 +103,6 @@ const Billing = () => {
         gstAmount = (invoice.total_amount * gstPercentage) / 100;
       }
 
-      // Create HTML content for the print window
       printWindow.document.write(`
         <!DOCTYPE html>
         <html>
@@ -348,7 +333,6 @@ const Billing = () => {
       printWindow.document.close();
       printWindow.focus();
       
-      // Print automatically after loading
       setTimeout(() => {
         printWindow.print();
       }, 1000);
