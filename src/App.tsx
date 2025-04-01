@@ -29,8 +29,6 @@ import CustomerPortal from "./pages/CustomerPortal";
 const queryClient = new QueryClient();
 
 const App = () => {
-  // Remove realtime initialization code
-  
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
