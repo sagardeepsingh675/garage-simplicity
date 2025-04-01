@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -14,10 +13,9 @@ import { toast } from '@/lib/toast';
 import { printInvoice } from '@/services/billingService';
 import { getBusinessSettings, BusinessSettings } from '@/services/businessSettingsService';
 import { BillingForm } from '@/components/BillingForm';
-
-// Import from service
 import { getInvoices } from '@/services/billing';
 import { Invoice, SupabaseInvoice } from '@/services/billing/types';
+import { useSearchParams } from 'react-router-dom';
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat('en-IN', {
@@ -27,10 +25,19 @@ function formatCurrency(amount: number) {
 }
 
 const Billing = () => {
+  const [searchParams] = useSearchParams();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
+
+  // On component mount, check if there's an invoice ID in the URL
+  React.useEffect(() => {
+    const invoiceId = searchParams.get('invoice');
+    if (invoiceId) {
+      setSelectedInvoiceId(invoiceId);
+    }
+  }, [searchParams]);
 
   // Query for fetching all invoices
   const invoicesQuery = useQuery({

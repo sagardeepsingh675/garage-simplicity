@@ -1,315 +1,257 @@
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Input } from '@/components/ui/input';
-import { IndianRupee, Plus, Trash2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Button } from "@/components/ui/button"
+import { toast } from "@/lib/toast";
+import { VehicleCanvas } from './VehicleCanvas';
+import { Switch } from "@/components/ui/switch"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { getBusinessSettings, BusinessSettings } from '@/services/businessSettingsService';
+import { getJobCardsByVehicleId } from '@/services/jobCardService';
 
-interface ServiceItem {
-  id: string;
-  name: string;
-  cost: number;
-}
-
-interface PartItem {
-  id: string;
-  name: string;
-  quantity: number;
-  cost: number;
-}
-
+// Define the props for the AutoBillGenerator component
 interface AutoBillGeneratorProps {
-  jobCardId?: string;
-  initialServices?: ServiceItem[];
-  initialParts?: PartItem[];
-  vehicleData?: any;
+  vehicleData: any;
   customerData?: any;
-  onGenerateBill?: (data: {
-    services: ServiceItem[];
-    parts: PartItem[];
-    total: number;
-    notes: string;
-  }) => void;
+  onGenerateBill: (billData: any) => void;
 }
 
-export function AutoBillGenerator({
-  jobCardId,
-  initialServices = [],
-  initialParts = [],
-  vehicleData,
-  customerData,
-  onGenerateBill
-}: AutoBillGeneratorProps) {
-  const [services, setServices] = useState<ServiceItem[]>(initialServices);
-  const [parts, setParts] = useState<PartItem[]>(initialParts);
-  const [newService, setNewService] = useState({ name: '', cost: 0 });
-  const [newPart, setNewPart] = useState({ name: '', quantity: 1, cost: 0 });
+// AutoBillGenerator component
+export const AutoBillGenerator: React.FC<AutoBillGeneratorProps> = ({ vehicleData, customerData, onGenerateBill }) => {
+  const [subtotal, setSubtotal] = useState(0);
+  const [parts, setParts] = useState([{ name: '', quantity: 1, price: 0 }]);
+  const [services, setServices] = useState([{ name: '', hours: 1, rate: 0 }]);
   const [notes, setNotes] = useState('');
+  const [isGstEnabled, setIsGstEnabled] = useState(false);
+  const [gstPercentage, setGstPercentage] = useState(0);
+  const [damageImageUrl, setDamageImageUrl] = useState<string | null>(null);
+  const [selectedJobCard, setSelectedJobCard] = useState<any>(null);
+  const [jobCards, setJobCards] = useState<any[]>([]);
   
-  const generateRandomId = () => Math.random().toString(36).substring(2, 9);
-  
-  const handleAddService = () => {
-    if (newService.name && newService.cost > 0) {
-      setServices([...services, { ...newService, id: generateRandomId() }]);
-      setNewService({ name: '', cost: 0 });
-    }
-  };
-  
-  const handleAddPart = () => {
-    if (newPart.name && newPart.quantity > 0 && newPart.cost > 0) {
-      setParts([...parts, { ...newPart, id: generateRandomId() }]);
-      setNewPart({ name: '', quantity: 1, cost: 0 });
-    }
-  };
-  
-  const handleRemoveService = (id: string) => {
-    setServices(services.filter(service => service.id !== id));
-  };
-  
-  const handleRemovePart = (id: string) => {
-    setParts(parts.filter(part => part.id !== id));
-  };
-  
-  const calculateTotals = () => {
-    const serviceTotal = services.reduce((sum, service) => sum + service.cost, 0);
-    const partsTotal = parts.reduce((sum, part) => sum + (part.cost * part.quantity), 0);
-    const grandTotal = serviceTotal + partsTotal;
-    
-    return {
-      services: serviceTotal,
-      parts: partsTotal,
-      total: grandTotal
+  useEffect(() => {
+    const fetchBusinessSettings = async () => {
+      try {
+        const businessSettings = await getBusinessSettings() as BusinessSettings;
+        if (businessSettings) {
+          setIsGstEnabled(businessSettings.show_gst_on_invoice || false);
+          setGstPercentage(businessSettings.gst_percentage || 0);
+        }
+      } catch (error) {
+        console.error('Error fetching business settings:', error);
+        toast.error('Failed to load business settings');
+      }
     };
-  };
+    
+    fetchBusinessSettings();
+  }, []);
   
-  const handleGenerate = () => {
-    if (onGenerateBill) {
-      onGenerateBill({
-        services,
-        parts,
-        total: calculateTotals().total,
-        notes
-      });
-    }
+  useEffect(() => {
+    const fetchJobCards = async () => {
+      if (vehicleData?.id) {
+        try {
+          const jobCardsData = await getJobCardsByVehicleId(vehicleData.id);
+          setJobCards(jobCardsData);
+        } catch (error) {
+          console.error('Error fetching job cards:', error);
+          toast.error('Failed to load job cards');
+        }
+      }
+    };
+    
+    fetchJobCards();
+  }, [vehicleData?.id]);
+
+  // Function to calculate subtotal
+  useEffect(() => {
+    const partsTotal = parts.reduce((acc, part) => acc + (part.quantity * part.price), 0);
+    const servicesTotal = services.reduce((acc, service) => acc + (service.hours * service.rate), 0);
+    setSubtotal(partsTotal + servicesTotal);
+  }, [parts, services]);
+
+  // Handlers for parts
+  const addPart = () => setParts([...parts, { name: '', quantity: 1, price: 0 }]);
+  const updatePart = (index: number, field: string, value: any) => {
+    const newParts = [...parts];
+    newParts[index][field] = value;
+    setParts(newParts);
   };
-  
-  const totals = calculateTotals();
+  const removePart = (index: number) => {
+    const newParts = [...parts];
+    newParts.splice(index, 1);
+    setParts(newParts);
+  };
+
+  // Handlers for services
+  const addService = () => setServices([...services, { name: '', hours: 1, rate: 0 }]);
+  const updateService = (index: number, field: string, value: any) => {
+    const newServices = [...services];
+    newServices[index][field] = value;
+    setServices(newServices);
+  };
+  const removeService = (index: number) => {
+    const newServices = [...services];
+    newServices.splice(index, 1);
+    setServices(newServices);
+  };
+
+  // Handle form submission
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Calculate the total including tax
+    const taxAmount = isGstEnabled ? subtotal * (gstPercentage / 100) : 0;
+    const totalAmount = subtotal + taxAmount;
+    
+    // Call the parent component's callback with all the invoice data
+    onGenerateBill({
+      subtotal,
+      taxAmount,
+      total: totalAmount,
+      parts,
+      services,
+      notes,
+      jobCardId: selectedJobCard?.id,
+      vehicleDamageImage: damageImageUrl
+    });
+  };
 
   return (
-    <div className="space-y-6">
-      {(vehicleData || jobCardId) && (
-        <div className="flex items-center justify-between bg-muted/30 p-3 rounded-lg">
-          <div>
-            <p className="text-sm text-muted-foreground">Auto-generating bill for:</p>
-            {jobCardId && <p className="font-medium">Job Card #{jobCardId}</p>}
-            {vehicleData && (
-              <p className="font-medium">
-                {vehicleData.make} {vehicleData.model} {vehicleData.license_plate ? `(${vehicleData.license_plate})` : ''}
-              </p>
-            )}
-            {customerData && (
-              <p className="text-sm">{customerData.name}</p>
-            )}
-          </div>
-          <Badge variant="outline" className="ml-auto">Auto Bill</Badge>
-        </div>
-      )}
-      
+    <form onSubmit={handleSubmit} className="space-y-4">
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Services</CardTitle>
+        <CardHeader>
+          <CardTitle>Job Card Selection</CardTitle>
+          <CardDescription>Select a job card to generate the bill from</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Input 
-                placeholder="Service name" 
-                value={newService.name}
-                onChange={(e) => setNewService({ ...newService, name: e.target.value })}
-                className="flex-1"
-              />
-              <div className="flex items-center">
-                <span className="mr-1">₹</span>
-                <Input 
-                  type="number" 
-                  placeholder="Cost" 
-                  value={newService.cost || ''}
-                  onChange={(e) => setNewService({ ...newService, cost: Number(e.target.value) })}
-                  className="w-24"
-                />
-              </div>
-              <Button onClick={handleAddService} size="sm" className="shrink-0">
-                <Plus className="h-4 w-4 mr-1" /> Add
-              </Button>
-            </div>
-            
-            {services.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Service</TableHead>
-                    <TableHead className="text-right">Amount (₹)</TableHead>
-                    <TableHead className="w-[60px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {services.map((service) => (
-                    <TableRow key={service.id}>
-                      <TableCell>{service.name}</TableCell>
-                      <TableCell className="text-right">{service.cost.toLocaleString('en-IN')}</TableCell>
-                      <TableCell>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => handleRemoveService(service.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  <TableRow>
-                    <TableCell className="font-medium">Services Subtotal</TableCell>
-                    <TableCell className="text-right font-medium">{totals.services.toLocaleString('en-IN')}</TableCell>
-                    <TableCell></TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="text-center py-4 text-muted-foreground">
-                No services added yet
-              </div>
-            )}
-          </div>
+          <Select onValueChange={(value) => {
+            const selectedCard = jobCards.find(jobCard => jobCard.id === value);
+            setSelectedJobCard(selectedCard);
+          }}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select a job card" />
+            </SelectTrigger>
+            <SelectContent>
+              {jobCards.map((jobCard: any) => (
+                <SelectItem key={jobCard.id} value={jobCard.id}>
+                  {jobCard.issue_description} - {new Date(jobCard.created_at).toLocaleDateString()}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </CardContent>
       </Card>
       
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Parts</CardTitle>
+        <CardHeader>
+          <CardTitle>Parts</CardTitle>
+          <CardDescription>Add parts used for the service</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Input 
-                placeholder="Part name" 
-                value={newPart.name}
-                onChange={(e) => setNewPart({ ...newPart, name: e.target.value })}
-                className="flex-1"
+        <CardContent className="space-y-2">
+          {parts.map((part, index) => (
+            <div key={index} className="grid grid-cols-4 gap-4 items-center">
+              <Input
+                type="text"
+                placeholder="Part Name"
+                value={part.name}
+                onChange={(e) => updatePart(index, 'name', e.target.value)}
               />
-              <Input 
-                type="number" 
-                placeholder="Qty" 
-                value={newPart.quantity || ''}
-                onChange={(e) => setNewPart({ ...newPart, quantity: Number(e.target.value) })}
-                className="w-16"
-                min="1"
+              <Input
+                type="number"
+                placeholder="Quantity"
+                value={part.quantity}
+                onChange={(e) => updatePart(index, 'quantity', Number(e.target.value))}
               />
-              <div className="flex items-center">
-                <span className="mr-1">₹</span>
-                <Input 
-                  type="number" 
-                  placeholder="Cost" 
-                  value={newPart.cost || ''}
-                  onChange={(e) => setNewPart({ ...newPart, cost: Number(e.target.value) })}
-                  className="w-24"
-                />
-              </div>
-              <Button onClick={handleAddPart} size="sm" className="shrink-0">
-                <Plus className="h-4 w-4 mr-1" /> Add
+              <Input
+                type="number"
+                placeholder="Price"
+                value={part.price}
+                onChange={(e) => updatePart(index, 'price', Number(e.target.value))}
+              />
+              <Button type="button" variant="destructive" size="sm" onClick={() => removePart(index)}>
+                Remove
               </Button>
             </div>
-            
-            {parts.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Part</TableHead>
-                    <TableHead>Qty</TableHead>
-                    <TableHead>Unit Price (₹)</TableHead>
-                    <TableHead className="text-right">Amount (₹)</TableHead>
-                    <TableHead className="w-[60px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {parts.map((part) => (
-                    <TableRow key={part.id}>
-                      <TableCell>{part.name}</TableCell>
-                      <TableCell>{part.quantity}</TableCell>
-                      <TableCell>{part.cost.toLocaleString('en-IN')}</TableCell>
-                      <TableCell className="text-right">{(part.cost * part.quantity).toLocaleString('en-IN')}</TableCell>
-                      <TableCell>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-destructive"
-                          onClick={() => handleRemovePart(part.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  <TableRow>
-                    <TableCell className="font-medium" colSpan={3}>Parts Subtotal</TableCell>
-                    <TableCell className="text-right font-medium">{totals.parts.toLocaleString('en-IN')}</TableCell>
-                    <TableCell></TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="text-center py-4 text-muted-foreground">
-                No parts added yet
-              </div>
-            )}
-          </div>
+          ))}
+          <Button type="button" variant="secondary" size="sm" onClick={addPart}>
+            Add Part
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Services</CardTitle>
+          <CardDescription>Add services provided</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {services.map((service, index) => (
+            <div key={index} className="grid grid-cols-4 gap-4 items-center">
+              <Input
+                type="text"
+                placeholder="Service Name"
+                value={service.name}
+                onChange={(e) => updateService(index, 'name', e.target.value)}
+              />
+              <Input
+                type="number"
+                placeholder="Hours"
+                value={service.hours}
+                onChange={(e) => updateService(index, 'hours', Number(e.target.value))}
+              />
+              <Input
+                type="number"
+                placeholder="Rate"
+                value={service.rate}
+                onChange={(e) => updateService(index, 'rate', Number(e.target.value))}
+              />
+              <Button type="button" variant="destructive" size="sm" onClick={() => removeService(index)}>
+                Remove
+              </Button>
+            </div>
+          ))}
+          <Button type="button" variant="secondary" size="sm" onClick={addService}>
+            Add Service
+          </Button>
         </CardContent>
       </Card>
       
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Bill Summary</CardTitle>
+        <CardHeader>
+          <CardTitle>Vehicle Condition</CardTitle>
+          <CardDescription>Mark any damage to the vehicle</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="border rounded-md">
-              <Table>
-                <TableBody>
-                  <TableRow>
-                    <TableCell className="font-medium">Services Total</TableCell>
-                    <TableCell className="text-right">₹{totals.services.toLocaleString('en-IN')}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">Parts Total</TableCell>
-                    <TableCell className="text-right">₹{totals.parts.toLocaleString('en-IN')}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">Grand Total</TableCell>
-                    <TableCell className="text-right font-bold text-lg">₹{totals.total.toLocaleString('en-IN')}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-            
-            <div>
-              <Input 
-                placeholder="Additional notes or payment information" 
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-              />
-            </div>
-            
-            <div className="pt-2 flex justify-end">
-              <Button onClick={handleGenerate} className="gap-1" disabled={totals.total === 0}>
-                <IndianRupee className="h-4 w-4" />
-                Generate Bill
-              </Button>
-            </div>
-          </div>
+          <VehicleCanvas vehicleType="sedan" onChange={setDamageImageUrl} />
         </CardContent>
       </Card>
-    </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Additional Notes</CardTitle>
+          <CardDescription>Add any additional notes</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Textarea placeholder="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </CardContent>
+      </Card>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>GST Settings</CardTitle>
+          <CardDescription>Enable or disable GST</CardDescription>
+        </CardHeader>
+        <CardContent className="flex items-center justify-between">
+          <Label htmlFor="enable-gst">Enable GST</Label>
+          <Switch id="enable-gst" checked={isGstEnabled} onCheckedChange={setIsGstEnabled} />
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-between">
+        <p className="text-xl">Subtotal: ₹{subtotal.toFixed(2)}</p>
+        <Button type="submit">Generate Bill</Button>
+      </div>
+    </form>
   );
-}
+};

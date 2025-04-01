@@ -20,6 +20,7 @@ import { getVehicleById, updateVehicle } from '@/services/vehicleService';
 import { getCustomerById } from '@/services/customerService';
 import { getStaff } from '@/services/staffService';
 import { createJobCard, getJobCardsByVehicleId, updateJobCardStatus } from '@/services/jobCardService';
+import { createInvoice } from '@/services/billingService';
 import { toast } from '@/lib/toast';
 
 const getStatusColor = (status: string) => {
@@ -137,9 +138,40 @@ const VehicleDetail = () => {
     }
   };
   
-  const handleGenerateBill = (billData: any) => {
-    toast.success(`Invoice created for ₹${billData.total.toLocaleString('en-IN')}`);
-    setIsGenerateBillOpen(false);
+  const handleGenerateBill = async (billData: any) => {
+    try {
+      if (!vehicle || !customer) {
+        toast.error('Vehicle or customer information is missing');
+        return;
+      }
+      
+      const invoiceData = {
+        customer_id: customer.id,
+        job_card_id: billData.jobCardId,
+        total_amount: billData.subtotal || 0,
+        tax_amount: billData.taxAmount || 0,
+        grand_total: billData.total || 0,
+        due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        status: 'unpaid' as 'paid' | 'unpaid' | 'overdue' | 'cancelled',
+        notes: billData.notes || '',
+        parts: billData.parts || [],
+        services: billData.services || [],
+        vehicle_damage_image: billData.vehicleDamageImage
+      };
+      
+      const invoice = await createInvoice(invoiceData);
+      
+      if (invoice) {
+        toast.success(`Invoice #${invoice.invoice_number} created successfully for ₹${billData.total.toLocaleString('en-IN')}`);
+        setIsGenerateBillOpen(false);
+        navigate(`/billing?invoice=${invoice.id}`);
+      } else {
+        toast.error('Failed to create invoice');
+      }
+    } catch (error) {
+      console.error('Error creating invoice:', error);
+      toast.error('Failed to create invoice');
+    }
   };
 
   const handleCreateJobCard = (e: React.FormEvent) => {
