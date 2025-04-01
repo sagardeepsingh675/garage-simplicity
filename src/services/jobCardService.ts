@@ -182,6 +182,14 @@ export async function deleteJobCard(id: string) {
 }
 
 // Job Card Items (Parts)
+export type JobCardItem = {
+  id?: string;
+  job_card_id: string;
+  inventory_item_id: string;
+  quantity: number;
+  price_per_unit: number;
+};
+
 export async function getJobCardItems(jobCardId: string) {
   try {
     const { data, error } = await supabase
@@ -202,7 +210,123 @@ export async function getJobCardItems(jobCardId: string) {
   }
 }
 
+export async function addJobCardItem(item: JobCardItem) {
+  try {
+    // First check if we have enough inventory
+    const { data: inventoryItem, error: inventoryError } = await supabase
+      .from('inventory_items')
+      .select('quantity')
+      .eq('id', item.inventory_item_id)
+      .single();
+    
+    if (inventoryError) throw inventoryError;
+    
+    if (!inventoryItem) {
+      toast.error('Inventory item not found');
+      return null;
+    }
+    
+    if (inventoryItem.quantity < item.quantity) {
+      toast.error(`Not enough quantity available. Only ${inventoryItem.quantity} in stock.`);
+      return null;
+    }
+    
+    // Add the job card item
+    const { data, error } = await supabase
+      .from('job_card_items')
+      .insert(item)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    // Reduce inventory quantity
+    const newQuantity = inventoryItem.quantity - item.quantity;
+    const { error: updateError } = await supabase
+      .from('inventory_items')
+      .update({ 
+        quantity: newQuantity,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', item.inventory_item_id);
+    
+    if (updateError) {
+      console.error('Error updating inventory quantity:', updateError);
+      // Don't fail the transaction, but log the error
+    }
+    
+    toast.success('Part added to job card');
+    return data;
+  } catch (error: any) {
+    console.error('Error adding job card item:', error);
+    toast.error('Failed to add part to job card');
+    return null;
+  }
+}
+
+export async function removeJobCardItem(itemId: string) {
+  try {
+    // First get the item details
+    const { data: item, error: getError } = await supabase
+      .from('job_card_items')
+      .select('*')
+      .eq('id', itemId)
+      .single();
+    
+    if (getError) throw getError;
+    
+    if (!item) {
+      toast.error('Item not found');
+      return false;
+    }
+    
+    // Delete the item
+    const { error } = await supabase
+      .from('job_card_items')
+      .delete()
+      .eq('id', itemId);
+    
+    if (error) throw error;
+    
+    // Return the inventory quantity
+    if (item.inventory_item_id) {
+      const { data: inventoryItem, error: inventoryError } = await supabase
+        .from('inventory_items')
+        .select('quantity')
+        .eq('id', item.inventory_item_id)
+        .single();
+      
+      if (!inventoryError && inventoryItem) {
+        const newQuantity = inventoryItem.quantity + item.quantity;
+        await supabase
+          .from('inventory_items')
+          .update({ 
+            quantity: newQuantity,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', item.inventory_item_id);
+      }
+    }
+    
+    toast.success('Part removed from job card');
+    return true;
+  } catch (error: any) {
+    console.error('Error removing job card item:', error);
+    toast.error('Failed to remove part from job card');
+    return false;
+  }
+}
+
 // Job Card Services
+export type JobCardService = {
+  id?: string;
+  job_card_id: string;
+  service_name: string;
+  description?: string;
+  hours_spent?: number;
+  rate_per_hour: number;
+};
+
 export async function getJobCardServices(jobCardId: string) {
   try {
     const { data, error } = await supabase
@@ -217,6 +341,43 @@ export async function getJobCardServices(jobCardId: string) {
     console.error('Error fetching job card services:', error);
     toast.error('Failed to load job card services');
     return [];
+  }
+}
+
+export async function addJobCardService(service: JobCardService) {
+  try {
+    const { data, error } = await supabase
+      .from('job_card_services')
+      .insert(service)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    toast.success('Service added to job card');
+    return data;
+  } catch (error: any) {
+    console.error('Error adding job card service:', error);
+    toast.error('Failed to add service to job card');
+    return null;
+  }
+}
+
+export async function removeJobCardService(serviceId: string) {
+  try {
+    const { error } = await supabase
+      .from('job_card_services')
+      .delete()
+      .eq('id', serviceId);
+    
+    if (error) throw error;
+    
+    toast.success('Service removed from job card');
+    return true;
+  } catch (error: any) {
+    console.error('Error removing job card service:', error);
+    toast.error('Failed to remove service from job card');
+    return false;
   }
 }
 

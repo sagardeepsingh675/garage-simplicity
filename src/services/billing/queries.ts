@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { formatInvoiceData } from "./utils";
 import { Invoice, SupabaseInvoice } from "./types";
@@ -91,7 +92,7 @@ export async function insertInvoice(invoice: Omit<Invoice, 'id' | 'created_at' |
   console.log('Inserting invoice data:', invoiceToInsert);
   
   // Process inventory items if present in parts
-  const partsWithInventory = invoice.parts.filter(part => part.inventory_item_id);
+  const partsWithInventory = (invoice.parts || []).filter(part => part.inventory_item_id);
   
   try {
     // Begin a transaction - this ensures all operations succeed or fail together
@@ -206,4 +207,79 @@ export async function deleteInvoiceData(id: string) {
   if (error) throw error;
   
   return true;
+}
+
+/**
+ * Fetch job card details for invoice creation
+ */
+export async function fetchJobCardDetailsForInvoice(jobCardId: string) {
+  try {
+    // Get job card basic info
+    const { data: jobCard, error: jobCardError } = await supabase
+      .from('job_cards')
+      .select(`
+        *,
+        vehicles (*),
+        customers (*)
+      `)
+      .eq('id', jobCardId)
+      .single();
+    
+    if (jobCardError) throw jobCardError;
+    
+    // Get job card items
+    const { data: items, error: itemsError } = await supabase
+      .from('job_card_items')
+      .select(`
+        *,
+        inventory_items (*)
+      `)
+      .eq('job_card_id', jobCardId);
+    
+    if (itemsError) throw itemsError;
+    
+    // Get job card services
+    const { data: services, error: servicesError } = await supabase
+      .from('job_card_services')
+      .select('*')
+      .eq('job_card_id', jobCardId);
+    
+    if (servicesError) throw servicesError;
+    
+    // Format the data
+    const formattedParts = items.map(item => ({
+      id: item.id,
+      inventory_item_id: item.inventory_item_id,
+      name: item.inventory_items?.name || 'Unknown part',
+      quantity: item.quantity || 1,
+      price: item.price_per_unit || 0,
+      total: (item.quantity || 1) * (item.price_per_unit || 0)
+    }));
+    
+    const formattedServices = services.map(service => ({
+      id: service.id,
+      name: service.service_name,
+      description: service.description,
+      hours: service.hours_spent || 1,
+      rate: service.rate_per_hour || 0,
+      total: (service.hours_spent || 1) * (service.rate_per_hour || 0)
+    }));
+    
+    const partsTotal = formattedParts.reduce((sum, part) => sum + part.total, 0);
+    const servicesTotal = formattedServices.reduce((sum, service) => sum + service.total, 0);
+    
+    return {
+      jobCard,
+      parts: formattedParts,
+      services: formattedServices,
+      totals: {
+        parts: partsTotal,
+        services: servicesTotal,
+        total: partsTotal + servicesTotal
+      }
+    };
+  } catch (error) {
+    console.error('Error fetching job card details for invoice:', error);
+    throw error;
+  }
 }

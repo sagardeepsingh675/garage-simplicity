@@ -8,6 +8,7 @@ export type InvoiceItem = {
   quantity: number;
   price: number;
   total: number;
+  inventory_item_id?: string;
 };
 
 export type InvoiceService = {
@@ -119,6 +120,54 @@ export async function createInvoice(invoice: Invoice) {
       .single();
 
     if (error) throw error;
+    
+    // Update inventory quantities for each part
+    if (invoice.parts && invoice.parts.length > 0) {
+      for (const part of invoice.parts) {
+        if (part.inventory_item_id) {
+          try {
+            // Get current inventory quantity
+            const { data: inventoryItem, error: getError } = await supabase
+              .from('inventory_items')
+              .select('quantity')
+              .eq('id', part.inventory_item_id)
+              .single();
+              
+            if (getError) {
+              console.error(`Error getting inventory item ${part.inventory_item_id}:`, getError);
+              continue;
+            }
+            
+            if (!inventoryItem) {
+              console.error(`Inventory item ${part.inventory_item_id} not found`);
+              continue;
+            }
+            
+            // Calculate new quantity
+            const newQuantity = inventoryItem.quantity - part.quantity;
+            if (newQuantity < 0) {
+              console.error(`Not enough quantity available for ${part.name}`);
+              continue;
+            }
+            
+            // Update inventory quantity
+            const { error: updateError } = await supabase
+              .from('inventory_items')
+              .update({ quantity: newQuantity, updated_at: new Date().toISOString() })
+              .eq('id', part.inventory_item_id);
+              
+            if (updateError) {
+              console.error(`Error updating inventory quantity for ${part.inventory_item_id}:`, updateError);
+            } else {
+              console.log(`Updated inventory quantity for ${part.name} to ${newQuantity}`);
+            }
+          } catch (error) {
+            console.error(`Error processing inventory update for part ${part.name}:`, error);
+          }
+        }
+      }
+    }
+    
     return data;
   } catch (error) {
     console.error('Error creating invoice:', error);
@@ -223,6 +272,69 @@ export async function printInvoice(invoiceId: string): Promise<PrintInvoiceData>
     };
   } catch (error) {
     console.error('Error fetching invoice data for printing:', error);
+    throw error;
+  }
+}
+
+// New function to get job card items and services
+export async function getJobCardDetails(jobCardId: string) {
+  try {
+    // Get job card info
+    const { data: jobCard, error: jobCardError } = await supabase
+      .from('job_cards')
+      .select('*, customers(*), vehicles(*)')
+      .eq('id', jobCardId)
+      .single();
+    
+    if (jobCardError) throw jobCardError;
+    
+    // Get job card items (parts)
+    const { data: jobCardItems, error: itemsError } = await supabase
+      .from('job_card_items')
+      .select(`
+        *,
+        inventory_items(id, name, part_number, price)
+      `)
+      .eq('job_card_id', jobCardId);
+    
+    if (itemsError) throw itemsError;
+    
+    // Get job card services
+    const { data: jobCardServices, error: servicesError } = await supabase
+      .from('job_card_services')
+      .select('*')
+      .eq('job_card_id', jobCardId);
+    
+    if (servicesError) throw servicesError;
+    
+    // Format parts for invoice
+    const parts = jobCardItems.map(item => ({
+      id: item.id,
+      name: item.inventory_items?.name || 'Unknown Part',
+      quantity: item.quantity,
+      price: item.price_per_unit,
+      total: item.quantity * item.price_per_unit,
+      inventory_item_id: item.inventory_item_id
+    }));
+    
+    // Format services for invoice
+    const services = jobCardServices.map(service => ({
+      id: service.id,
+      name: service.service_name,
+      hours: service.hours_spent || 0,
+      rate: service.rate_per_hour,
+      total: (service.hours_spent || 0) * service.rate_per_hour
+    }));
+    
+    return {
+      jobCard,
+      parts,
+      services,
+      totalPartsAmount: parts.reduce((sum, part) => sum + part.total, 0),
+      totalServicesAmount: services.reduce((sum, service) => sum + service.total, 0)
+    };
+  } catch (error) {
+    console.error('Error fetching job card details:', error);
     throw error;
   }
 }

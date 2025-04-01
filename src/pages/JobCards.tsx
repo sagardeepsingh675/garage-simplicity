@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -17,7 +18,8 @@ import { getVehicles } from '@/services/vehicleService';
 import { getCustomers } from '@/services/customerService';
 import { getStaff } from '@/services/staffService';
 import { toast } from '@/lib/toast';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { JobCardBilling } from '@/components/JobCardBilling';
 
 type NewJobCard = Omit<JobCard, 'id'>;
 
@@ -51,6 +53,10 @@ const JobCards = () => {
     diagnosis: null
   });
   
+  const [selectedJobCardId, setSelectedJobCardId] = useState<string | null>(null);
+  const [isBillingDialogOpen, setIsBillingDialogOpen] = useState(false);
+  
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   // Fetch job cards
@@ -133,6 +139,16 @@ const JobCards = () => {
   const handleStatusUpdate = (jobCardId: string, newStatus: string) => {
     if (updateStatusMutation.isPending) return;
     updateStatusMutation.mutate({ jobCardId, status: newStatus });
+  };
+
+  const handleGenerateInvoice = (jobCardId: string) => {
+    setSelectedJobCardId(jobCardId);
+    setIsBillingDialogOpen(true);
+  };
+
+  const handleBillingSuccess = () => {
+    setIsBillingDialogOpen(false);
+    setSelectedJobCardId(null);
   };
 
   const filteredJobCards = jobCards.filter(card => 
@@ -264,6 +280,15 @@ const JobCards = () => {
                             <DropdownMenuItem asChild>
                               <Link to={`/vehicles/${card.vehicle_id}`}>View details</Link>
                             </DropdownMenuItem>
+                            
+                            {/* Generate Invoice option for completed job cards */}
+                            {card.status === 'completed' && (
+                              <DropdownMenuItem onClick={() => handleGenerateInvoice(card.id)}>
+                                <CreditCard className="h-4 w-4 mr-2" />
+                                Generate Invoice
+                              </DropdownMenuItem>
+                            )}
+                            
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
                               onClick={() => handleStatusUpdate(card.id, 'pending')}
@@ -399,6 +424,26 @@ const JobCards = () => {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Invoice Generation Dialog */}
+      <Dialog open={isBillingDialogOpen} onOpenChange={setIsBillingDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Generate Invoice</DialogTitle>
+            <DialogDescription>
+              Create an invoice for this job card
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedJobCardId && (
+            <JobCardBilling 
+              jobCardId={selectedJobCardId} 
+              onSuccess={handleBillingSuccess}
+              onCancel={() => setIsBillingDialogOpen(false)}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </Layout>
