@@ -1,10 +1,9 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { NavigationMenu, NavigationMenuList, NavigationMenuItem } from '@/components/ui/navigation-menu';
-import { Car, Info, PhoneCall, UserCircle, Calendar, Tools, CheckCircle, Settings, MessageCircle } from 'lucide-react';
+import { Car, Info, PhoneCall, UserCircle, Calendar, Wrench, CheckCircle, Settings, MessageCircle } from 'lucide-react';
 import AnimatedGarage from '@/components/AnimatedGarage';
 import AnimatedCounter from '@/components/AnimatedCounter';
 import TestimonialCard from '@/components/TestimonialCard';
@@ -138,7 +137,7 @@ const LandingPage = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <AnimatedCounter value={5000} text="Happy Customers" icon={<UserCircle />} />
             <AnimatedCounter value={15000} text="Vehicles Serviced" icon={<Car />} />
-            <AnimatedCounter value={8} text="Service Centers" icon={<Tools />} />
+            <AnimatedCounter value={8} text="Service Centers" icon={<Wrench />} />
             <AnimatedCounter value={24} text="Years Experience" icon={<Calendar />} />
           </div>
         </div>
