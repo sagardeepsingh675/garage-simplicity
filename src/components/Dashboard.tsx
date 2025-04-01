@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity, Car, Clipboard, Package, Users, ArrowUpRight, ArrowDownRight } from 'lucide-react';
@@ -8,6 +9,8 @@ import { getCustomers } from '@/services/customerService';
 import { getJobCards } from '@/services/jobCardService';
 import { getStaff } from '@/services/staffService';
 import { getInventoryItems } from '@/services/inventoryService';
+import AnimatedGarage from './AnimatedGarage';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from './ui/carousel';
 
 interface StatCardProps {
   title: string;
@@ -131,6 +134,14 @@ export function Dashboard() {
     );
   }
 
+  // Workshop photos for the gallery
+  const workshopPhotos = [
+    "/workshop1.jpg",
+    "/workshop2.jpg",
+    "/workshop3.jpg",
+    "/workshop4.jpg"
+  ];
+
   return (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -172,6 +183,48 @@ export function Dashboard() {
           icon={Package} 
           iconColor="bg-success/10 text-success"
         />
+      </div>
+      
+      <div className="grid gap-6 md:grid-cols-7">
+        <Card className="md:col-span-3 transition-smooth card-hover overflow-hidden">
+          <CardHeader>
+            <CardTitle>Workshop Gallery</CardTitle>
+            <CardDescription>Our state-of-the-art garage facilities</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Carousel className="w-full">
+              <CarouselContent>
+                {workshopPhotos.map((photo, index) => (
+                  <CarouselItem key={index}>
+                    <div className="p-1">
+                      <div className="overflow-hidden rounded-lg">
+                        <img 
+                          src={photo} 
+                          alt={`Workshop scene ${index + 1}`} 
+                          className="w-full aspect-video object-cover"
+                        />
+                      </div>
+                    </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <div className="flex justify-center mt-4">
+                <CarouselPrevious className="relative static translate-y-0 left-0 mr-2" />
+                <CarouselNext className="relative static translate-y-0 right-0" />
+              </div>
+            </Carousel>
+          </CardContent>
+        </Card>
+
+        <Card className="md:col-span-4 transition-smooth card-hover">
+          <CardHeader>
+            <CardTitle>3D Garage Visualization</CardTitle>
+            <CardDescription>Interactive view of our facility</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <AnimatedGarage />
+          </CardContent>
+        </Card>
       </div>
       
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
@@ -227,6 +280,24 @@ export function Dashboard() {
                 />
               </div>
             ))}
+          </CardContent>
+        </Card>
+
+        <Card className="col-span-3 transition-smooth card-hover">
+          <CardHeader>
+            <CardTitle>Featured Vehicle</CardTitle>
+            <CardDescription>Latest addition to our service roster</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0 overflow-hidden">
+            <img 
+              src="/luxury-car.jpg" 
+              alt="Featured luxury car" 
+              className="w-full object-cover h-48"
+            />
+            <div className="p-4">
+              <h3 className="font-medium text-lg">Mercedes-Benz S-Class</h3>
+              <p className="text-sm text-muted-foreground">Premium vehicle maintenance package</p>
+            </div>
           </CardContent>
         </Card>
       </div>
