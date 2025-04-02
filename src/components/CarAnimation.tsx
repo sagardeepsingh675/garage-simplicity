@@ -1,7 +1,7 @@
 
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { useGLTF, PresentationControls, Environment } from '@react-three/drei';
+import { useGLTF, PresentationControls } from '@react-three/drei';
 import { Mesh } from 'three';
 
 export default function CarAnimation() {
@@ -38,10 +38,18 @@ export default function CarAnimation() {
       config={{ mass: 2, tension: 400 }}
       snap={{ mass: 4, tension: 300 }}
     >
-      {/* Replace Environment preset with a simpler one that doesn't require HDR files */}
-      <Environment preset="sunset" />
+      {/* Enhanced lighting setup instead of using Environment */}
       <ambientLight intensity={0.5} />
       <directionalLight position={[10, 10, 5]} intensity={1} />
+      <directionalLight position={[-10, -10, -5]} intensity={0.5} color="#b1e1ff" />
+      <hemisphereLight intensity={0.4} color="#ffd700" groundColor="#8d7e5b" />
+      <spotLight 
+        position={[5, 5, 5]} 
+        angle={0.3} 
+        penumbra={1} 
+        intensity={1} 
+        castShadow 
+      />
       <Model />
     </PresentationControls>
   );

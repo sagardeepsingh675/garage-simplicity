@@ -21,6 +21,8 @@ export default function AnimatedGarage() {
           className="w-full h-full rounded-lg shadow-xl"
           onError={(e) => console.error("Canvas error:", e)}
         >
+          <color attach="background" args={['#f5f5f7']} />
+          <fog attach="fog" args={['#f5f5f7', 10, 20]} />
           <OrbitControls enableZoom={false} />
           <CarAnimation />
         </Canvas>
