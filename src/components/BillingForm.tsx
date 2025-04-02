@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,41 +36,41 @@ export function BillingForm({ jobCardId: initialJobCardId, onSuccess }: BillingF
   const { data: jobCardItems = [] } = useQuery({
     queryKey: ['jobCardItems', selectedJobCardId],
     queryFn: () => getJobCardItems(selectedJobCardId),
-    enabled: !!selectedJobCardId,
-    onSuccess: (data) => {
-      if (data && data.length > 0) {
-        const jobCardInvoiceItems: InvoiceItem[] = data.map((item: any) => ({
-          name: item.inventory_items?.name || 'Unknown Item',
-          quantity: item.quantity,
-          cost: item.price_per_unit,
-          inventory_item_id: item.inventory_item_id
-        }));
-        
-        if (selectedItems.length === 0) {
-          setSelectedItems(jobCardInvoiceItems);
-        }
-      }
-    }
+    enabled: !!selectedJobCardId
   });
+
+  // Process jobCardItems when data changes
+  useEffect(() => {
+    if (jobCardItems && jobCardItems.length > 0 && selectedItems.length === 0) {
+      const jobCardInvoiceItems: InvoiceItem[] = jobCardItems.map((item: any) => ({
+        name: item.inventory_items?.name || 'Unknown Item',
+        quantity: item.quantity,
+        cost: item.price_per_unit,
+        inventory_item_id: item.inventory_item_id
+      }));
+      
+      setSelectedItems(jobCardInvoiceItems);
+    }
+  }, [jobCardItems, selectedItems.length]);
 
   const { data: jobCardServices = [] } = useQuery({
     queryKey: ['jobCardServices', selectedJobCardId],
     queryFn: () => getJobCardServices(selectedJobCardId),
-    enabled: !!selectedJobCardId,
-    onSuccess: (data) => {
-      if (data && data.length > 0) {
-        const jobCardInvoiceServices: InvoiceService[] = data.map((service: any) => ({
-          name: service.service_name,
-          description: service.description,
-          cost: service.rate_per_hour * (service.hours_spent || 1)
-        }));
-        
-        if (services.length === 0) {
-          setServices(jobCardInvoiceServices);
-        }
-      }
-    }
+    enabled: !!selectedJobCardId
   });
+
+  // Process jobCardServices when data changes
+  useEffect(() => {
+    if (jobCardServices && jobCardServices.length > 0 && services.length === 0) {
+      const jobCardInvoiceServices: InvoiceService[] = jobCardServices.map((service: any) => ({
+        name: service.service_name,
+        description: service.description,
+        cost: service.rate_per_hour * (service.hours_spent || 1)
+      }));
+      
+      setServices(jobCardInvoiceServices);
+    }
+  }, [jobCardServices, services.length]);
 
   const { data: inventoryItems = [] } = useQuery({
     queryKey: ['inventory'],

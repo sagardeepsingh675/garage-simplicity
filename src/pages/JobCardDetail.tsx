@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -107,7 +106,6 @@ export default function JobCardDetail() {
                       </p>
                       <p className="text-sm">License Plate: {jobCard.vehicles.license_plate || 'N/A'}</p>
                       <p className="text-sm">Color: {jobCard.vehicles.color || 'N/A'}</p>
-                      <p className="text-sm">VIN: {jobCard.vehicles.vin || 'N/A'}</p>
                     </div>
                   ) : (
                     <p className="text-muted-foreground">Vehicle information not available</p>
