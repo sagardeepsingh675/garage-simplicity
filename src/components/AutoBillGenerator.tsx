@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -9,7 +10,8 @@ import { VehicleCanvas } from './VehicleCanvas';
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getBusinessSettings, BusinessSettings } from '@/services/businessSettingsService';
-import { getJobCardsByVehicleId } from '@/services/jobCardService';
+import { getJobCardById, getJobCardsByVehicleId, getJobCardItems, getJobCardServices } from '@/services/jobCardService';
+import { InventoryItemSelector, SelectedInventoryItem } from './InventoryItemSelector';
 
 // Define the props for the AutoBillGenerator component
 interface AutoBillGeneratorProps {
@@ -21,7 +23,6 @@ interface AutoBillGeneratorProps {
 // AutoBillGenerator component
 export const AutoBillGenerator: React.FC<AutoBillGeneratorProps> = ({ vehicleData, customerData, onGenerateBill }) => {
   const [subtotal, setSubtotal] = useState(0);
-  const [parts, setParts] = useState([{ name: '', quantity: 1, price: 0 }]);
   const [services, setServices] = useState([{ name: '', hours: 1, rate: 0 }]);
   const [notes, setNotes] = useState('');
   const [isGstEnabled, setIsGstEnabled] = useState(false);
@@ -29,6 +30,10 @@ export const AutoBillGenerator: React.FC<AutoBillGeneratorProps> = ({ vehicleDat
   const [damageImageUrl, setDamageImageUrl] = useState<string | null>(null);
   const [selectedJobCard, setSelectedJobCard] = useState<any>(null);
   const [jobCards, setJobCards] = useState<any[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<SelectedInventoryItem[]>([]);
+  const [jobCardItems, setJobCardItems] = useState<any[]>([]);
+  const [jobCardServices, setJobCardServices] = useState<any[]>([]);
+  const [isLoadingJobCardData, setIsLoadingJobCardData] = useState(false);
   
   useEffect(() => {
     const fetchBusinessSettings = async () => {
@@ -64,22 +69,53 @@ export const AutoBillGenerator: React.FC<AutoBillGeneratorProps> = ({ vehicleDat
   }, [vehicleData?.id]);
 
   useEffect(() => {
-    const partsTotal = parts.reduce((acc, part) => acc + (part.quantity * part.price), 0);
+    const fetchJobCardDetails = async () => {
+      if (selectedJobCard?.id) {
+        setIsLoadingJobCardData(true);
+        try {
+          // Get parts used in this job card
+          const items = await getJobCardItems(selectedJobCard.id);
+          setJobCardItems(items);
+          
+          // Get services performed in this job card
+          const services = await getJobCardServices(selectedJobCard.id);
+          setJobCardServices(services);
+          
+          // Map job card items to inventory items format
+          const mappedItems = items.map((item: any) => ({
+            id: item.inventory_item_id,
+            name: item.inventory_items?.name || 'Unknown Item',
+            part_number: item.inventory_items?.part_number,
+            brand: item.inventory_items?.brand,
+            price: item.price_per_unit,
+            quantity: item.quantity
+          }));
+          setInventoryItems(mappedItems);
+          
+          // Map job card services to services format
+          const mappedServices = services.map((service: any) => ({
+            name: service.service_name,
+            hours: service.hours_spent || 1,
+            rate: service.rate_per_hour
+          }));
+          setServices(mappedServices.length > 0 ? mappedServices : [{ name: '', hours: 1, rate: 0 }]);
+        } catch (error) {
+          console.error('Error fetching job card details:', error);
+          toast.error('Failed to load job card details');
+        } finally {
+          setIsLoadingJobCardData(false);
+        }
+      }
+    };
+    
+    fetchJobCardDetails();
+  }, [selectedJobCard]);
+
+  useEffect(() => {
+    const partsTotal = inventoryItems.reduce((acc, part) => acc + (part.quantity * part.price), 0);
     const servicesTotal = services.reduce((acc, service) => acc + (service.hours * service.rate), 0);
     setSubtotal(partsTotal + servicesTotal);
-  }, [parts, services]);
-
-  const addPart = () => setParts([...parts, { name: '', quantity: 1, price: 0 }]);
-  const updatePart = (index: number, field: string, value: any) => {
-    const newParts = [...parts];
-    newParts[index][field] = value;
-    setParts(newParts);
-  };
-  const removePart = (index: number) => {
-    const newParts = [...parts];
-    newParts.splice(index, 1);
-    setParts(newParts);
-  };
+  }, [inventoryItems, services]);
 
   const addService = () => setServices([...services, { name: '', hours: 1, rate: 0 }]);
   const updateService = (index: number, field: string, value: any) => {
@@ -103,8 +139,18 @@ export const AutoBillGenerator: React.FC<AutoBillGeneratorProps> = ({ vehicleDat
       subtotal,
       taxAmount,
       total: totalAmount,
-      parts,
-      services,
+      parts: inventoryItems.map(item => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        total: item.quantity * item.price
+      })),
+      services: services.map(service => ({
+        name: service.name,
+        hours: service.hours,
+        rate: service.rate,
+        total: service.hours * service.rate
+      })),
       notes,
       jobCardId: selectedJobCard?.id,
       vehicleDamageImage: damageImageUrl
@@ -134,43 +180,25 @@ export const AutoBillGenerator: React.FC<AutoBillGeneratorProps> = ({ vehicleDat
               ))}
             </SelectContent>
           </Select>
+          
+          {isLoadingJobCardData && (
+            <div className="mt-4 text-center text-sm text-muted-foreground">
+              Loading job card details...
+            </div>
+          )}
         </CardContent>
       </Card>
       
       <Card>
         <CardHeader>
-          <CardTitle>Parts</CardTitle>
+          <CardTitle>Inventory Items</CardTitle>
           <CardDescription>Add parts used for the service</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {parts.map((part, index) => (
-            <div key={index} className="grid grid-cols-4 gap-4 items-center">
-              <Input
-                type="text"
-                placeholder="Part Name"
-                value={part.name}
-                onChange={(e) => updatePart(index, 'name', e.target.value)}
-              />
-              <Input
-                type="number"
-                placeholder="Quantity"
-                value={part.quantity}
-                onChange={(e) => updatePart(index, 'quantity', Number(e.target.value))}
-              />
-              <Input
-                type="number"
-                placeholder="Price"
-                value={part.price}
-                onChange={(e) => updatePart(index, 'price', Number(e.target.value))}
-              />
-              <Button type="button" variant="destructive" size="sm" onClick={() => removePart(index)}>
-                Remove
-              </Button>
-            </div>
-          ))}
-          <Button type="button" variant="secondary" size="sm" onClick={addPart}>
-            Add Part
-          </Button>
+        <CardContent>
+          <InventoryItemSelector 
+            onItemsSelected={setInventoryItems} 
+            initialItems={inventoryItems}
+          />
         </CardContent>
       </Card>
 

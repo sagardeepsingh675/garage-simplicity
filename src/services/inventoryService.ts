@@ -144,3 +144,55 @@ export async function updateInventoryQuantity(id: string, change: number) {
     return null;
   }
 }
+
+export async function reserveInventoryItems(items: { id: string, quantity: number }[]) {
+  try {
+    // For each item, check if we have enough quantity and update
+    const results = [];
+    
+    for (const item of items) {
+      const { data: inventoryItem, error: getError } = await supabase
+        .from('inventory_items')
+        .select('quantity, name')
+        .eq('id', item.id)
+        .single();
+      
+      if (getError) {
+        console.error(`Error fetching item ${item.id}:`, getError);
+        continue;
+      }
+      
+      if (!inventoryItem) {
+        console.error(`Item ${item.id} not found`);
+        continue;
+      }
+      
+      if (inventoryItem.quantity < item.quantity) {
+        toast.error(`Not enough ${inventoryItem.name} in stock. Only ${inventoryItem.quantity} available.`);
+        continue;
+      }
+      
+      const newQuantity = inventoryItem.quantity - item.quantity;
+      
+      const { data, error: updateError } = await supabase
+        .from('inventory_items')
+        .update({ quantity: newQuantity, updated_at: new Date().toISOString() })
+        .eq('id', item.id)
+        .select()
+        .single();
+      
+      if (updateError) {
+        console.error(`Error updating item ${item.id}:`, updateError);
+        continue;
+      }
+      
+      results.push(data);
+    }
+    
+    return results;
+  } catch (error: any) {
+    console.error('Error reserving inventory items:', error);
+    toast.error('Failed to reserve inventory items');
+    return [];
+  }
+}
