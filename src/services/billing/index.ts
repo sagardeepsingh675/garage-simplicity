@@ -48,17 +48,20 @@ export async function createInvoice(invoice: Omit<Invoice, 'id' | 'created_at' |
     if (invoice.parts && invoice.parts.length > 0) {
       // Format the parts data for the inventory reservation
       const itemsToReserve = invoice.parts.map(part => ({
-        id: part.id,
+        id: part.inventory_item_id || '',
         quantity: part.quantity
       }));
       
-      // Reserve the inventory items
-      const { success, failedItems } = await reserveInventoryItems(itemsToReserve);
-      
-      if (!success) {
-        console.warn('Some inventory items could not be reserved:', failedItems);
-        if (failedItems.length === itemsToReserve.length) {
-          throw new Error('Could not reserve any inventory items');
+      // Only proceed with reservation if we have valid inventory IDs
+      if (itemsToReserve.some(item => item.id)) {
+        // Reserve the inventory items
+        const { success, failedItems } = await reserveInventoryItems(itemsToReserve);
+        
+        if (!success) {
+          console.warn('Some inventory items could not be reserved:', failedItems);
+          if (failedItems.length === itemsToReserve.filter(item => item.id).length) {
+            throw new Error('Could not reserve any inventory items');
+          }
         }
       }
     }

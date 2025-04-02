@@ -15,8 +15,8 @@ export type Invoice = {
   payment_date?: string;
   payment_method?: string;
   notes?: string;
-  services: { name: string; description?: string; cost: number }[];
-  parts: { name: string; quantity: number; cost: number; inventory_item_id?: string }[];
+  services: InvoiceService[];
+  parts: InvoiceItem[];
   customers?: {
     name: string;
     phone: string;
@@ -62,4 +62,20 @@ export type SupabaseInvoice = SupabaseData & {
   // Add these properties to SupabaseInvoice as well
   invoice_number?: string;
   vehicle_damage_image?: string;
+}
+
+// Add the missing InvoiceItem type
+export type InvoiceItem = {
+  id?: string;
+  name: string;
+  quantity: number;
+  cost: number;
+  inventory_item_id?: string;
+}
+
+// Add the missing InvoiceService type
+export type InvoiceService = {
+  name: string;
+  description?: string;
+  cost: number;
 }
