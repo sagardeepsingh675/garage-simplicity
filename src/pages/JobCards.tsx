@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, MoreHorizontal, FileText, Calendar, Car, User, CreditCard, Clock } from 'lucide-react';
+import { Search, Plus, MoreHorizontal, FileText, Calendar, Car, User, Clock } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -19,7 +19,6 @@ import { getCustomers } from '@/services/customerService';
 import { getStaff } from '@/services/staffService';
 import { toast } from '@/lib/toast';
 import { Link, useNavigate } from 'react-router-dom';
-import { JobCardBilling } from '@/components/JobCardBilling';
 
 type NewJobCard = Omit<JobCard, 'id'>;
 
@@ -52,9 +51,6 @@ const JobCards = () => {
     completion_date: null,
     diagnosis: null
   });
-  
-  const [selectedJobCardId, setSelectedJobCardId] = useState<string | null>(null);
-  const [isBillingDialogOpen, setIsBillingDialogOpen] = useState(false);
   
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -139,16 +135,6 @@ const JobCards = () => {
   const handleStatusUpdate = (jobCardId: string, newStatus: string) => {
     if (updateStatusMutation.isPending) return;
     updateStatusMutation.mutate({ jobCardId, status: newStatus });
-  };
-
-  const handleGenerateInvoice = (jobCardId: string) => {
-    setSelectedJobCardId(jobCardId);
-    setIsBillingDialogOpen(true);
-  };
-
-  const handleBillingSuccess = () => {
-    setIsBillingDialogOpen(false);
-    setSelectedJobCardId(null);
   };
 
   const filteredJobCards = jobCards.filter(card => 
@@ -280,14 +266,6 @@ const JobCards = () => {
                             <DropdownMenuItem asChild>
                               <Link to={`/vehicles/${card.vehicle_id}`}>View details</Link>
                             </DropdownMenuItem>
-                            
-                            {/* Generate Invoice option for completed job cards */}
-                            {card.status === 'completed' && (
-                              <DropdownMenuItem onClick={() => handleGenerateInvoice(card.id)}>
-                                <CreditCard className="h-4 w-4 mr-2" />
-                                Generate Invoice
-                              </DropdownMenuItem>
-                            )}
                             
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 
@@ -424,26 +402,6 @@ const JobCards = () => {
               </Button>
             </DialogFooter>
           </form>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Invoice Generation Dialog */}
-      <Dialog open={isBillingDialogOpen} onOpenChange={setIsBillingDialogOpen}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Generate Invoice</DialogTitle>
-            <DialogDescription>
-              Create an invoice for this job card
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedJobCardId && (
-            <JobCardBilling 
-              jobCardId={selectedJobCardId} 
-              onSuccess={handleBillingSuccess}
-              onCancel={() => setIsBillingDialogOpen(false)}
-            />
-          )}
         </DialogContent>
       </Dialog>
     </Layout>

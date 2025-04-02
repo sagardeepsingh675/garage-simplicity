@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Search, Plus, Minus } from 'lucide-react';
@@ -38,10 +37,16 @@ export const InventoryItemSelector: React.FC<InventoryItemSelectorProps> = ({ on
     onItemsSelected(selectedItems);
   }, [selectedItems, onItemsSelected]);
   
+  // When initialItems change (like when a job card is selected), update our local state
+  useEffect(() => {
+    setSelectedItems(initialItems);
+  }, [initialItems]);
+  
   const filteredItems = inventoryItems.filter((item: InventoryItem) => 
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     (item.part_number && item.part_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (item.brand && item.brand.toLowerCase().includes(searchTerm.toLowerCase()))
+    (item.brand && item.brand.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (item.category && item.category.toLowerCase().includes(searchTerm.toLowerCase()))
   );
   
   const handleAddItem = (item: InventoryItem) => {
@@ -126,7 +131,7 @@ export const InventoryItemSelector: React.FC<InventoryItemSelectorProps> = ({ on
       <div className="flex items-center space-x-2">
         <Search className="h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search inventory items..."
+          placeholder="Search inventory items by name, part number, brand, or category..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="flex-1"
@@ -233,6 +238,7 @@ export const InventoryItemSelector: React.FC<InventoryItemSelectorProps> = ({ on
                     <TableHead>Item</TableHead>
                     <TableHead>Price</TableHead>
                     <TableHead>Available</TableHead>
+                    <TableHead>Category</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -247,9 +253,10 @@ export const InventoryItemSelector: React.FC<InventoryItemSelectorProps> = ({ on
                         </div>
                       </TableCell>
                       <TableCell>₹{item.price.toFixed(2)}</TableCell>
-                      <TableCell className={item.quantity <= item.min_quantity ? "text-amber-600" : ""}>
+                      <TableCell className={item.quantity <= item.min_quantity ? "text-amber-600 font-medium" : ""}>
                         {item.quantity}
                       </TableCell>
+                      <TableCell>{item.category || '-'}</TableCell>
                       <TableCell>
                         <Button 
                           type="button" 

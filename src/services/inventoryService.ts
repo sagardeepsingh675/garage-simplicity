@@ -113,7 +113,7 @@ export async function updateInventoryQuantity(id: string, change: number) {
     // First get the current quantity
     const { data: item, error: getError } = await supabase
       .from('inventory_items')
-      .select('quantity')
+      .select('quantity, name')
       .eq('id', id)
       .single();
     
@@ -123,7 +123,7 @@ export async function updateInventoryQuantity(id: string, change: number) {
     const newQuantity = item.quantity + change;
     
     if (newQuantity < 0) {
-      toast.error('Cannot reduce quantity below zero');
+      toast.error(`Cannot reduce quantity of ${item.name} below zero`);
       return null;
     }
     
@@ -136,7 +136,7 @@ export async function updateInventoryQuantity(id: string, change: number) {
     
     if (updateError) throw updateError;
     
-    toast.success('Inventory quantity updated successfully');
+    toast.success(`Inventory quantity for ${item.name} updated successfully`);
     return data;
   } catch (error: any) {
     console.error('Error updating inventory quantity:', error);
@@ -149,6 +149,7 @@ export async function reserveInventoryItems(items: { id: string, quantity: numbe
   try {
     // For each item, check if we have enough quantity and update
     const results = [];
+    const failures = [];
     
     for (const item of items) {
       const { data: inventoryItem, error: getError } = await supabase
@@ -159,16 +160,21 @@ export async function reserveInventoryItems(items: { id: string, quantity: numbe
       
       if (getError) {
         console.error(`Error fetching item ${item.id}:`, getError);
+        failures.push({ id: item.id, reason: 'Item not found in database' });
         continue;
       }
       
       if (!inventoryItem) {
-        console.error(`Item ${item.id} not found`);
+        failures.push({ id: item.id, reason: 'Item not found' });
         continue;
       }
       
       if (inventoryItem.quantity < item.quantity) {
-        toast.error(`Not enough ${inventoryItem.name} in stock. Only ${inventoryItem.quantity} available.`);
+        failures.push({ 
+          id: item.id, 
+          name: inventoryItem.name,
+          reason: `Not enough in stock. Only ${inventoryItem.quantity} available of ${item.quantity} requested.` 
+        });
         continue;
       }
       
@@ -183,16 +189,31 @@ export async function reserveInventoryItems(items: { id: string, quantity: numbe
       
       if (updateError) {
         console.error(`Error updating item ${item.id}:`, updateError);
+        failures.push({ id: item.id, name: inventoryItem.name, reason: 'Database update failed' });
         continue;
       }
       
       results.push(data);
     }
     
-    return results;
+    if (failures.length > 0) {
+      failures.forEach(failure => {
+        toast.error(`Issue with item ${failure.name || failure.id}: ${failure.reason}`);
+      });
+    }
+    
+    if (results.length > 0) {
+      toast.success(`Reserved ${results.length} inventory items successfully`);
+    }
+    
+    return { 
+      success: results.length === items.length, 
+      updatedItems: results,
+      failedItems: failures
+    };
   } catch (error: any) {
     console.error('Error reserving inventory items:', error);
     toast.error('Failed to reserve inventory items');
-    return [];
+    return { success: false, updatedItems: [], failedItems: [] };
   }
 }

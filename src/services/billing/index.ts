@@ -2,7 +2,8 @@
 import { toast } from "@/lib/toast";
 import { fetchInvoices, fetchInvoiceById, insertInvoice, updateInvoiceData, deleteInvoiceData } from "./queries";
 import { formatInvoiceData } from "./utils";
-import { Invoice } from "./types";
+import { Invoice, InvoiceItem, InvoiceService } from "./types";
+import { reserveInventoryItems } from "../inventoryService";
 
 /**
  * Gets all invoices
@@ -41,6 +42,25 @@ export async function createInvoice(invoice: Omit<Invoice, 'id' | 'created_at' |
     if (invoice.status !== 'paid' && invoice.status !== 'pending' && invoice.status !== 'overdue') {
       console.error('Invalid invoice status:', invoice.status);
       throw new Error('Invalid invoice status. Must be "paid", "pending", or "overdue"');
+    }
+    
+    // Reserve inventory items if we have parts included in this invoice
+    if (invoice.parts && invoice.parts.length > 0) {
+      // Format the parts data for the inventory reservation
+      const itemsToReserve = invoice.parts.map(part => ({
+        id: part.id,
+        quantity: part.quantity
+      }));
+      
+      // Reserve the inventory items
+      const { success, failedItems } = await reserveInventoryItems(itemsToReserve);
+      
+      if (!success) {
+        console.warn('Some inventory items could not be reserved:', failedItems);
+        if (failedItems.length === itemsToReserve.length) {
+          throw new Error('Could not reserve any inventory items');
+        }
+      }
     }
     
     // First insert the invoice
@@ -107,6 +127,22 @@ export async function deleteInvoice(id: string) {
     console.error('Error deleting invoice:', error);
     toast.error('Failed to delete invoice');
     return false;
+  }
+}
+
+// Get invoice data from a job card
+export async function getInvoiceDataFromJobCard(jobCardId: string) {
+  try {
+    // This function would fetch job card details, including items and services
+    // and format them for billing purposes
+    const response = await fetch(`/api/job-cards/${jobCardId}/billing-data`);
+    if (!response.ok) throw new Error('Failed to fetch job card billing data');
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error getting invoice data from job card:', error);
+    toast.error('Failed to get billing data from job card');
+    return null;
   }
 }
 

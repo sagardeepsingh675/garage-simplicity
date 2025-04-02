@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getBusinessSettings, BusinessSettings } from '@/services/businessSettingsService';
 import { getJobCardById, getJobCardsByVehicleId, getJobCardItems, getJobCardServices } from '@/services/jobCardService';
 import { InventoryItemSelector, SelectedInventoryItem } from './InventoryItemSelector';
+import { Loader2 } from 'lucide-react';
 
 // Define the props for the AutoBillGenerator component
 interface AutoBillGeneratorProps {
@@ -182,7 +183,8 @@ export const AutoBillGenerator: React.FC<AutoBillGeneratorProps> = ({ vehicleDat
           </Select>
           
           {isLoadingJobCardData && (
-            <div className="mt-4 text-center text-sm text-muted-foreground">
+            <div className="mt-4 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
               Loading job card details...
             </div>
           )}
