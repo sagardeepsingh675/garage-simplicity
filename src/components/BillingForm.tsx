@@ -4,45 +4,81 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, Trash, Package, IndianRupee } from 'lucide-react';
+import { Search, Plus, Trash, Package, IndianRupee, ListCheck } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { getInventoryItems } from '@/services/inventoryService';
-import { getJobCardById } from '@/services/jobCardService';
+import { getJobCardById, getJobCardServices, getJobCardItems } from '@/services/jobCardService';
 import { createInvoice } from '@/services/billing';
 import { toast } from '@/lib/toast';
-import { Invoice } from '@/services/billing/types';
+import { Invoice, InvoiceItem, InvoiceService } from '@/services/billing/types';
+import { getAllJobCards } from '@/services/jobCardService';
 
 interface BillingFormProps {
-  jobCardId: string;
+  jobCardId?: string;
   onSuccess?: () => void;
 }
 
-export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
+export function BillingForm({ jobCardId: initialJobCardId, onSuccess }: BillingFormProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedItems, setSelectedItems] = useState<Array<{
-    id: string;
-    name: string;
-    quantity: number;
-    price: number;
-    inventoryId: string;
-  }>>([]);
-  const [services, setServices] = useState<Array<{
-    name: string;
-    description?: string;
-    cost: number;
-  }>>([]);
+  const [selectedItems, setSelectedItems] = useState<InvoiceItem[]>([]);
+  const [services, setServices] = useState<InvoiceService[]>([]);
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [selectedJobCardId, setSelectedJobCardId] = useState(initialJobCardId || '');
+
+  const { data: jobCard } = useQuery({
+    queryKey: ['jobCard', selectedJobCardId],
+    queryFn: () => getJobCardById(selectedJobCardId),
+    enabled: !!selectedJobCardId
+  });
+
+  const { data: jobCardItems = [] } = useQuery({
+    queryKey: ['jobCardItems', selectedJobCardId],
+    queryFn: () => getJobCardItems(selectedJobCardId),
+    enabled: !!selectedJobCardId,
+    onSuccess: (data) => {
+      if (data && data.length > 0) {
+        const jobCardInvoiceItems: InvoiceItem[] = data.map((item: any) => ({
+          name: item.inventory_items?.name || 'Unknown Item',
+          quantity: item.quantity,
+          cost: item.price_per_unit,
+          inventory_item_id: item.inventory_item_id
+        }));
+        
+        if (selectedItems.length === 0) {
+          setSelectedItems(jobCardInvoiceItems);
+        }
+      }
+    }
+  });
+
+  const { data: jobCardServices = [] } = useQuery({
+    queryKey: ['jobCardServices', selectedJobCardId],
+    queryFn: () => getJobCardServices(selectedJobCardId),
+    enabled: !!selectedJobCardId,
+    onSuccess: (data) => {
+      if (data && data.length > 0) {
+        const jobCardInvoiceServices: InvoiceService[] = data.map((service: any) => ({
+          name: service.service_name,
+          description: service.description,
+          cost: service.rate_per_hour * (service.hours_spent || 1)
+        }));
+        
+        if (services.length === 0) {
+          setServices(jobCardInvoiceServices);
+        }
+      }
+    }
+  });
 
   const { data: inventoryItems = [] } = useQuery({
     queryKey: ['inventory'],
     queryFn: getInventoryItems
   });
 
-  const { data: jobCard, isLoading: isJobCardLoading } = useQuery({
-    queryKey: ['jobCard', jobCardId],
-    queryFn: () => getJobCardById(jobCardId),
-    enabled: !!jobCardId
+  const { data: allJobCards = [] } = useQuery({
+    queryKey: ['allJobCards'],
+    queryFn: getAllJobCards
   });
 
   const filteredInventoryItems = inventoryItems.filter((item: any) => 
@@ -55,7 +91,7 @@ export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
     const item = inventoryItems.find((i: any) => i.id === itemId);
     if (!item) return;
 
-    if (selectedItems.some(i => i.inventoryId === itemId)) {
+    if (selectedItems.some(i => i.inventory_item_id === itemId)) {
       toast.error('This item is already added to the bill');
       return;
     }
@@ -68,11 +104,10 @@ export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
     setSelectedItems([
       ...selectedItems,
       {
-        id: Math.random().toString(36).substring(2, 9),
         name: item.name,
         quantity: 1,
-        price: item.price,
-        inventoryId: item.id
+        cost: item.price,
+        inventory_item_id: item.id
       }
     ]);
     setSearchTerm('');
@@ -89,29 +124,29 @@ export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
     ]);
   };
 
-  const removeItem = (id: string) => {
-    setSelectedItems(selectedItems.filter(item => item.id !== id));
+  const removeItem = (index: number) => {
+    setSelectedItems(selectedItems.filter((_, i) => i !== index));
   };
 
   const removeService = (index: number) => {
     setServices(services.filter((_, i) => i !== index));
   };
 
-  const updateItemQuantity = (id: string, quantity: number) => {
-    const item = selectedItems.find(i => i.id === id);
+  const updateItemQuantity = (index: number, quantity: number) => {
+    const item = selectedItems[index];
     if (!item) return;
 
-    const inventoryItem = inventoryItems.find((i: any) => i.id === item.inventoryId);
-    if (!inventoryItem) return;
-
-    if (quantity > inventoryItem.quantity) {
-      toast.error(`Only ${inventoryItem.quantity} units available in inventory`);
-      return;
+    if (item.inventory_item_id) {
+      const inventoryItem = inventoryItems.find((i: any) => i.id === item.inventory_item_id);
+      if (inventoryItem && quantity > inventoryItem.quantity) {
+        toast.error(`Only ${inventoryItem.quantity} units available in inventory`);
+        return;
+      }
     }
 
     setSelectedItems(
-      selectedItems.map(item => 
-        item.id === id ? { ...item, quantity } : item
+      selectedItems.map((item, i) => 
+        i === index ? { ...item, quantity } : item
       )
     );
   };
@@ -125,7 +160,7 @@ export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
   };
 
   const calculateTotals = () => {
-    const itemsTotal = selectedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const itemsTotal = selectedItems.reduce((sum, item) => sum + (item.cost * item.quantity), 0);
     const servicesTotal = services.reduce((sum, service) => sum + (service.cost || 0), 0);
     const subtotal = itemsTotal + servicesTotal;
     const taxRate = 0.18;
@@ -146,11 +181,6 @@ export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!jobCard) {
-      toast.error('Job card information missing');
-      return;
-    }
-
     if (selectedItems.length === 0 && services.length === 0) {
       toast.error('Please add at least one item or service to the bill');
       return;
@@ -159,25 +189,18 @@ export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
     setLoading(true);
 
     try {
-      const parts = selectedItems.map(item => ({
-        name: item.name,
-        quantity: item.quantity,
-        cost: item.price,
-        inventory_item_id: item.inventoryId
-      }));
-
       const invoiceStatus: 'pending' | 'paid' | 'overdue' = 'pending';
 
       const invoiceData = {
-        customer_id: jobCard.customer_id,
-        job_card_id: jobCard.id,
+        customer_id: jobCard?.customer_id || '',
+        job_card_id: selectedJobCardId || undefined,
         total_amount: subtotal,
         tax_amount: taxAmount,
         grand_total: grandTotal,
         status: invoiceStatus,
         due_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
         services,
-        parts,
+        parts: selectedItems,
         notes
       };
 
@@ -198,12 +221,35 @@ export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
     }
   };
 
-  if (isJobCardLoading) {
-    return <div>Loading job card information...</div>;
-  }
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {!initialJobCardId && (
+        <div className="space-y-2">
+          <Label htmlFor="job-card">Select Job Card (Optional)</Label>
+          <Select
+            value={selectedJobCardId}
+            onValueChange={setSelectedJobCardId}
+          >
+            <SelectTrigger id="job-card">
+              <SelectValue placeholder="Select a job card" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">No job card</SelectItem>
+              {allJobCards.map((jobCard: any) => (
+                <SelectItem key={jobCard.id} value={jobCard.id}>
+                  #{jobCard.id.substring(0, 8)} - {jobCard.vehicles?.make} {jobCard.vehicles?.model} ({jobCard.customers?.name})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selectedJobCardId && (
+            <p className="text-sm text-muted-foreground">
+              Items and services from this job card will be automatically added to the bill.
+            </p>
+          )}
+        </div>
+      )}
+      
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-medium">Parts from Inventory</h3>
@@ -251,35 +297,35 @@ export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
           <Card>
             <CardContent className="p-4">
               <div className="space-y-2">
-                {selectedItems.map(item => (
-                  <div key={item.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                {selectedItems.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between py-2 border-b last:border-0">
                     <div className="flex items-center space-x-4">
                       <Package className="h-5 w-5 text-muted-foreground" />
                       <div>
                         <p className="font-medium">{item.name}</p>
-                        <p className="text-sm text-muted-foreground">₹{item.price} per unit</p>
+                        <p className="text-sm text-muted-foreground">₹{item.cost} per unit</p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-4">
                       <div className="flex items-center space-x-2">
-                        <Label htmlFor={`quantity-${item.id}`} className="sr-only">Quantity</Label>
+                        <Label htmlFor={`quantity-${index}`} className="sr-only">Quantity</Label>
                         <Input
-                          id={`quantity-${item.id}`}
+                          id={`quantity-${index}`}
                           type="number"
                           className="w-16"
                           min={1}
                           value={item.quantity}
-                          onChange={(e) => updateItemQuantity(item.id, parseInt(e.target.value) || 1)}
+                          onChange={(e) => updateItemQuantity(index, parseInt(e.target.value) || 1)}
                         />
                       </div>
                       <div className="w-24 text-right font-medium">
-                        ₹{(item.price * item.quantity).toLocaleString('en-IN')}
+                        ₹{(item.cost * item.quantity).toLocaleString('en-IN')}
                       </div>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        onClick={() => removeItem(item.id)}
+                        onClick={() => removeItem(index)}
                       >
                         <Trash className="h-4 w-4" />
                       </Button>
@@ -410,7 +456,7 @@ export function BillingForm({ jobCardId, onSuccess }: BillingFormProps) {
         <Button 
           type="submit" 
           className="gap-2" 
-          disabled={loading || selectedItems.length === 0 && services.length === 0}
+          disabled={loading || (selectedItems.length === 0 && services.length === 0)}
         >
           {loading ? 'Creating Invoice...' : 'Generate Invoice'}
         </Button>

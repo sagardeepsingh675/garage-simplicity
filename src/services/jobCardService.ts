@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/lib/toast";
 
@@ -422,5 +421,26 @@ export async function updateJobCardStatus(jobCardId: string, status: string) {
     console.error('Error updating job card status:', error);
     toast.error('Failed to update job card status');
     return null;
+  }
+}
+
+export async function getAllJobCards() {
+  try {
+    const { data, error } = await supabase
+      .from('job_cards')
+      .select(`
+        *,
+        vehicles(id, make, model, license_plate),
+        customers(id, name, phone)
+      `)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    
+    return data || [];
+  } catch (error: any) {
+    console.error('Error fetching all job cards:', error);
+    toast.error('Failed to load job cards');
+    return [];
   }
 }
