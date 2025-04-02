@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -6,10 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, Wrench, Car, User, Calendar, FileText } from 'lucide-react';
+import { ChevronLeft, Wrench, Car, User, Calendar, FileText, Receipt } from 'lucide-react';
 import { getJobCardById } from '@/services/jobCardService';
 import { JobCardItemsForm } from '@/components/JobCardItemsForm';
 import { JobCardServicesForm } from '@/components/JobCardServicesForm';
+import { JobCardBilling } from '@/components/JobCardBilling';
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -83,10 +85,11 @@ export default function JobCardDetail() {
         </div>
         
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3 lg:w-auto">
+          <TabsList className="grid w-full grid-cols-4 lg:w-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="parts">Parts</TabsTrigger>
             <TabsTrigger value="services">Services</TabsTrigger>
+            <TabsTrigger value="billing">Billing</TabsTrigger>
           </TabsList>
           
           <TabsContent value="overview" className="space-y-6 animate-fade-in">
@@ -219,6 +222,29 @@ export default function JobCardDetail() {
               </CardHeader>
               <CardContent>
                 <JobCardServicesForm jobCardId={id || ''} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="billing" className="animate-fade-in">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Generate Invoice</CardTitle>
+                    <CardDescription>
+                      Create an invoice based on parts and services in this job card
+                    </CardDescription>
+                  </div>
+                  <Receipt className="h-5 w-5 text-muted-foreground" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <JobCardBilling 
+                  jobCardId={id || ''} 
+                  onCancel={() => setActiveTab('overview')}
+                  onSuccess={() => navigate('/billing')}
+                />
               </CardContent>
             </Card>
           </TabsContent>

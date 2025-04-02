@@ -3,16 +3,20 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Plus, Trash, Package, IndianRupee, ListCheck } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { CalendarIcon, Loader2, IndianRupee, Trash, Plus } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import { useQuery } from '@tanstack/react-query';
 import { getInventoryItems } from '@/services/inventoryService';
-import { getJobCardById, getJobCardServices, getJobCardItems } from '@/services/jobCardService';
-import { createInvoice } from '@/services/billing';
+import { getAllJobCards, getJobCardById, getJobCardItems, getJobCardServices } from '@/services/jobCardService';
+import { createInvoice, InvoiceItem, InvoiceService } from '@/services/billingService';
 import { toast } from '@/lib/toast';
-import { Invoice, InvoiceItem, InvoiceService } from '@/services/billing/types';
-import { getAllJobCards } from '@/services/jobCardService';
+import { cn } from '@/lib/utils';
 
 interface BillingFormProps {
   jobCardId?: string;
@@ -20,32 +24,38 @@ interface BillingFormProps {
 }
 
 export function BillingForm({ jobCardId: initialJobCardId, onSuccess }: BillingFormProps) {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedJobCardId, setSelectedJobCardId] = useState(initialJobCardId || '');
   const [selectedItems, setSelectedItems] = useState<InvoiceItem[]>([]);
   const [services, setServices] = useState<InvoiceService[]>([]);
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
-  const [selectedJobCardId, setSelectedJobCardId] = useState(initialJobCardId || '');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showItemSearch, setShowItemSearch] = useState(false);
+  const [dueDate, setDueDate] = useState<Date>(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000));
 
+  // Job card query
   const { data: jobCard } = useQuery({
     queryKey: ['jobCard', selectedJobCardId],
     queryFn: () => getJobCardById(selectedJobCardId),
     enabled: !!selectedJobCardId
   });
 
+  // Job card items query
   const { data: jobCardItems = [] } = useQuery({
     queryKey: ['jobCardItems', selectedJobCardId],
     queryFn: () => getJobCardItems(selectedJobCardId),
     enabled: !!selectedJobCardId
   });
 
-  // Process jobCardItems when data changes
+  // Process job card items when data changes
   useEffect(() => {
     if (jobCardItems && jobCardItems.length > 0 && selectedItems.length === 0) {
       const jobCardInvoiceItems: InvoiceItem[] = jobCardItems.map((item: any) => ({
+        id: item.id,
         name: item.inventory_items?.name || 'Unknown Item',
         quantity: item.quantity,
-        cost: item.price_per_unit,
+        price: item.price_per_unit,
+        total: item.quantity * item.price_per_unit,
         inventory_item_id: item.inventory_item_id
       }));
       
@@ -53,30 +63,35 @@ export function BillingForm({ jobCardId: initialJobCardId, onSuccess }: BillingF
     }
   }, [jobCardItems, selectedItems.length]);
 
+  // Job card services query
   const { data: jobCardServices = [] } = useQuery({
     queryKey: ['jobCardServices', selectedJobCardId],
     queryFn: () => getJobCardServices(selectedJobCardId),
     enabled: !!selectedJobCardId
   });
 
-  // Process jobCardServices when data changes
+  // Process job card services when data changes
   useEffect(() => {
     if (jobCardServices && jobCardServices.length > 0 && services.length === 0) {
       const jobCardInvoiceServices: InvoiceService[] = jobCardServices.map((service: any) => ({
+        id: service.id,
         name: service.service_name,
-        description: service.description,
-        cost: service.rate_per_hour * (service.hours_spent || 1)
+        hours: service.hours_spent || 1,
+        rate: service.rate_per_hour,
+        total: (service.hours_spent || 1) * service.rate_per_hour
       }));
       
       setServices(jobCardInvoiceServices);
     }
   }, [jobCardServices, services.length]);
 
+  // Inventory items query
   const { data: inventoryItems = [] } = useQuery({
     queryKey: ['inventory'],
     queryFn: getInventoryItems
   });
 
+  // All job cards query
   const { data: allJobCards = [] } = useQuery({
     queryKey: ['allJobCards'],
     queryFn: getAllJobCards
@@ -88,12 +103,9 @@ export function BillingForm({ jobCardId: initialJobCardId, onSuccess }: BillingF
     (item.brand && item.brand.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const addInventoryItem = (itemId: string) => {
-    const item = inventoryItems.find((i: any) => i.id === itemId);
-    if (!item) return;
-
-    if (selectedItems.some(i => i.inventory_item_id === itemId)) {
-      toast.error('This item is already added to the bill');
+  const addInventoryItem = (item: any) => {
+    if (selectedItems.some(i => i.inventory_item_id === item.id)) {
+      toast.error('This item is already added to the invoice');
       return;
     }
 
@@ -107,11 +119,14 @@ export function BillingForm({ jobCardId: initialJobCardId, onSuccess }: BillingF
       {
         name: item.name,
         quantity: 1,
-        cost: item.price,
+        price: item.price,
+        total: item.price,
         inventory_item_id: item.id
       }
     ]);
+    
     setSearchTerm('');
+    setShowItemSearch(false);
   };
 
   const addService = () => {
@@ -119,8 +134,9 @@ export function BillingForm({ jobCardId: initialJobCardId, onSuccess }: BillingF
       ...services,
       { 
         name: 'Service',
-        description: '',
-        cost: 0
+        hours: 1,
+        rate: 500,
+        total: 500
       }
     ]);
   };
@@ -134,7 +150,8 @@ export function BillingForm({ jobCardId: initialJobCardId, onSuccess }: BillingF
   };
 
   const updateItemQuantity = (index: number, quantity: number) => {
-    const item = selectedItems[index];
+    const updatedItems = [...selectedItems];
+    const item = updatedItems[index];
     if (!item) return;
 
     if (item.inventory_item_id) {
@@ -145,24 +162,56 @@ export function BillingForm({ jobCardId: initialJobCardId, onSuccess }: BillingF
       }
     }
 
-    setSelectedItems(
-      selectedItems.map((item, i) => 
-        i === index ? { ...item, quantity } : item
-      )
-    );
+    updatedItems[index] = {
+      ...item,
+      quantity,
+      total: quantity * item.price
+    };
+    
+    setSelectedItems(updatedItems);
   };
 
-  const updateService = (index: number, field: 'name' | 'description' | 'cost', value: string | number) => {
-    setServices(
-      services.map((service, i) => 
-        i === index ? { ...service, [field]: value } : service
-      )
-    );
+  const updateItemPrice = (index: number, price: number) => {
+    const updatedItems = [...selectedItems];
+    const item = updatedItems[index];
+    if (!item) return;
+
+    updatedItems[index] = {
+      ...item,
+      price,
+      total: item.quantity * price
+    };
+    
+    setSelectedItems(updatedItems);
+  };
+
+  const updateService = (index: number, field: keyof InvoiceService, value: number | string) => {
+    const updatedServices = [...services];
+    const service = updatedServices[index];
+    if (!service) return;
+
+    if (field === 'hours' || field === 'rate') {
+      const hours = field === 'hours' ? Number(value) : service.hours;
+      const rate = field === 'rate' ? Number(value) : service.rate;
+      
+      updatedServices[index] = {
+        ...service,
+        [field]: Number(value),
+        total: hours * rate
+      };
+    } else {
+      updatedServices[index] = {
+        ...service,
+        [field]: value
+      };
+    }
+    
+    setServices(updatedServices);
   };
 
   const calculateTotals = () => {
-    const itemsTotal = selectedItems.reduce((sum, item) => sum + (item.cost * item.quantity), 0);
-    const servicesTotal = services.reduce((sum, service) => sum + (service.cost || 0), 0);
+    const itemsTotal = selectedItems.reduce((sum, item) => sum + item.total, 0);
+    const servicesTotal = services.reduce((sum, service) => sum + service.total, 0);
     const subtotal = itemsTotal + servicesTotal;
     const taxRate = 0.18;
     const taxAmount = subtotal * taxRate;
@@ -183,23 +232,39 @@ export function BillingForm({ jobCardId: initialJobCardId, onSuccess }: BillingF
     e.preventDefault();
     
     if (selectedItems.length === 0 && services.length === 0) {
-      toast.error('Please add at least one item or service to the bill');
+      toast.error('Please add at least one item or service to the invoice');
+      return;
+    }
+
+    if (!dueDate) {
+      toast.error('Please set a due date for the invoice');
+      return;
+    }
+
+    if (!jobCard && selectedJobCardId) {
+      toast.error('Selected job card could not be loaded');
       return;
     }
 
     setLoading(true);
 
     try {
-      const invoiceStatus: 'pending' | 'paid' | 'overdue' = 'pending';
+      const customer_id = jobCard?.customer_id || '';
+      
+      if (!customer_id) {
+        toast.error('A customer is required for the invoice');
+        setLoading(false);
+        return;
+      }
 
       const invoiceData = {
-        customer_id: jobCard?.customer_id || '',
+        customer_id,
         job_card_id: selectedJobCardId || undefined,
         total_amount: subtotal,
         tax_amount: taxAmount,
         grand_total: grandTotal,
-        status: invoiceStatus,
-        due_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+        status: 'unpaid' as const,
+        due_date: dueDate.toISOString(),
         services,
         parts: selectedItems,
         notes
@@ -212,7 +277,7 @@ export function BillingForm({ jobCardId: initialJobCardId, onSuccess }: BillingF
         toast.success('Invoice created successfully');
         if (onSuccess) onSuccess();
       } else {
-        toast.error('Failed to create invoice - no result returned');
+        toast.error('Failed to create invoice');
       }
     } catch (error) {
       console.error('Error creating invoice:', error);
@@ -222,205 +287,281 @@ export function BillingForm({ jobCardId: initialJobCardId, onSuccess }: BillingF
     }
   };
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', { 
+      style: 'currency', 
+      currency: 'INR' 
+    }).format(amount);
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {!initialJobCardId && (
-        <div className="space-y-2">
-          <Label htmlFor="job-card">Select Job Card (Optional)</Label>
-          <Select
-            value={selectedJobCardId}
-            onValueChange={setSelectedJobCardId}
-          >
-            <SelectTrigger id="job-card">
-              <SelectValue placeholder="Select a job card" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">No job card</SelectItem>
-              {allJobCards.map((jobCard: any) => (
-                <SelectItem key={jobCard.id} value={jobCard.id}>
-                  #{jobCard.id.substring(0, 8)} - {jobCard.vehicles?.make} {jobCard.vehicles?.model} ({jobCard.customers?.name})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {selectedJobCardId && (
-            <p className="text-sm text-muted-foreground">
-              Items and services from this job card will be automatically added to the bill.
-            </p>
-          )}
-        </div>
-      )}
-      
       <div className="space-y-4">
+        <Label htmlFor="job-card">Select Job Card (Optional)</Label>
+        <Select
+          value={selectedJobCardId}
+          onValueChange={(value) => {
+            setSelectedJobCardId(value);
+            // Clear existing items and services when changing job card
+            if (value !== selectedJobCardId) {
+              setSelectedItems([]);
+              setServices([]);
+            }
+          }}
+        >
+          <SelectTrigger id="job-card">
+            <SelectValue placeholder="Select a job card" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">No job card</SelectItem>
+            {allJobCards.map((jobCard: any) => (
+              <SelectItem key={jobCard.id} value={jobCard.id}>
+                #{jobCard.id.substring(0, 8)} - {jobCard.vehicles?.make} {jobCard.vehicles?.model} ({jobCard.customers?.name})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        
+        {selectedJobCardId && jobCard && (
+          <Card className="bg-muted/50">
+            <CardContent className="p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium">Customer</h3>
+                  <p>{jobCard.customers?.name}</p>
+                  {jobCard.customers?.phone && <p className="text-xs text-muted-foreground">{jobCard.customers.phone}</p>}
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium">Vehicle</h3>
+                  <p>{jobCard.vehicles?.make} {jobCard.vehicles?.model}</p>
+                  {jobCard.vehicles?.license_plate && <p className="text-xs text-muted-foreground">License: {jobCard.vehicles.license_plate}</p>}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+      
+      <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium">Parts from Inventory</h3>
-          <div className="flex items-center space-x-2">
-            <div className="relative w-64">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Label>Due Date</Label>
+        </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                "w-full justify-start text-left font-normal",
+                !dueDate && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0">
+            <Calendar
+              mode="single"
+              selected={dueDate}
+              onSelect={(date) => date && setDueDate(date)}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+      
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">Parts</CardTitle>
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setShowItemSearch(!showItemSearch)}
+            >
+              <Plus className="h-4 w-4 mr-1" /> Add Part
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {showItemSearch && (
+            <div className="space-y-2">
               <Input
                 type="search"
                 placeholder="Search inventory..."
-                className="pl-8"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
               {searchTerm && (
-                <div className="absolute mt-1 w-full rounded-md border bg-popover shadow-md z-50 max-h-60 overflow-auto">
-                  {filteredInventoryItems.length > 0 ? (
-                    filteredInventoryItems.map((item: any) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between p-2 hover:bg-muted cursor-pointer"
-                        onClick={() => addInventoryItem(item.id)}
-                      >
-                        <div>
-                          <p className="font-medium">{item.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {item.part_number && `#${item.part_number}`} {item.brand && `• ${item.brand}`}
-                          </p>
+                <Card className="overflow-hidden">
+                  <div className="max-h-60 overflow-auto">
+                    {filteredInventoryItems.length > 0 ? (
+                      filteredInventoryItems.map((item: any) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between p-2 hover:bg-muted cursor-pointer border-b last:border-0"
+                          onClick={() => addInventoryItem(item)}
+                        >
+                          <div>
+                            <p className="font-medium">{item.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.part_number && `#${item.part_number}`} {item.brand && `• ${item.brand}`}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">{formatCurrency(item.price)}</p>
+                            <Badge variant={item.quantity > 0 ? "outline" : "destructive"} className="text-xs">
+                              {item.quantity} in stock
+                            </Badge>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-medium">₹{item.price}</p>
-                          <p className="text-xs text-muted-foreground">{item.quantity} in stock</p>
-                        </div>
+                      ))
+                    ) : (
+                      <div className="p-2 text-center text-muted-foreground">
+                        No items found matching "{searchTerm}"
                       </div>
-                    ))
-                  ) : (
-                    <div className="p-2 text-center text-muted-foreground">No items found</div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                </Card>
               )}
             </div>
-          </div>
-        </div>
+          )}
 
-        {selectedItems.length > 0 ? (
-          <Card>
-            <CardContent className="p-4">
-              <div className="space-y-2">
-                {selectedItems.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between py-2 border-b last:border-0">
-                    <div className="flex items-center space-x-4">
-                      <Package className="h-5 w-5 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium">{item.name}</p>
-                        <p className="text-sm text-muted-foreground">₹{item.cost} per unit</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center space-x-2">
-                        <Label htmlFor={`quantity-${index}`} className="sr-only">Quantity</Label>
-                        <Input
-                          id={`quantity-${index}`}
-                          type="number"
-                          className="w-16"
-                          min={1}
-                          value={item.quantity}
-                          onChange={(e) => updateItemQuantity(index, parseInt(e.target.value) || 1)}
-                        />
-                      </div>
-                      <div className="w-24 text-right font-medium">
-                        ₹{(item.cost * item.quantity).toLocaleString('en-IN')}
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeItem(index)}
-                      >
-                        <Trash className="h-4 w-4" />
-                      </Button>
-                    </div>
+          {selectedItems.length > 0 ? (
+            <div className="space-y-4">
+              {selectedItems.map((item, index) => (
+                <div key={index} className="flex flex-col space-y-2 p-3 border rounded-md">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium">{item.name}</h4>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeItem(index)}
+                    >
+                      <Trash className="h-4 w-4" />
+                    </Button>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardContent className="p-6 text-center text-muted-foreground">
-              No parts added yet. Search and select parts from inventory.
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium">Services</h3>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={addService}
-            className="gap-1"
-          >
-            <Plus className="h-4 w-4" /> Add Service
-          </Button>
-        </div>
-
-        {services.length > 0 ? (
-          <Card>
-            <CardContent className="p-4">
-              <div className="space-y-4">
-                {services.map((service, index) => (
-                  <div key={index} className="grid gap-4 py-2 border-b last:border-0">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 mr-4">
-                        <Label htmlFor={`service-name-${index}`}>Service Name</Label>
-                        <Input
-                          id={`service-name-${index}`}
-                          value={service.name}
-                          onChange={(e) => updateService(index, 'name', e.target.value)}
-                          required
-                        />
-                      </div>
-                      <div className="w-32 mr-4">
-                        <Label htmlFor={`service-cost-${index}`}>Cost (₹)</Label>
-                        <Input
-                          id={`service-cost-${index}`}
-                          type="number"
-                          min="0"
-                          value={service.cost}
-                          onChange={(e) => updateService(index, 'cost', Number(e.target.value))}
-                          required
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="mt-6"
-                        onClick={() => removeService(index)}
-                      >
-                        <Trash className="h-4 w-4" />
-                      </Button>
-                    </div>
+                  <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <Label htmlFor={`service-desc-${index}`}>Description (Optional)</Label>
+                      <Label htmlFor={`item-quantity-${index}`}>Quantity</Label>
                       <Input
-                        id={`service-desc-${index}`}
-                        value={service.description || ''}
-                        onChange={(e) => updateService(index, 'description', e.target.value)}
+                        id={`item-quantity-${index}`}
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) => updateItemQuantity(index, parseInt(e.target.value) || 1)}
                       />
                     </div>
+                    <div>
+                      <Label htmlFor={`item-price-${index}`}>Price</Label>
+                      <Input
+                        id={`item-price-${index}`}
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.price}
+                        onChange={(e) => updateItemPrice(index, parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div>
+                      <Label>Total</Label>
+                      <div className="h-10 px-3 py-2 rounded-md border bg-muted flex items-center">
+                        {formatCurrency(item.total)}
+                      </div>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardContent className="p-6 text-center text-muted-foreground">
-              No services added yet. Click "Add Service" to add one.
-            </CardContent>
-          </Card>
-        )}
-      </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-4 text-muted-foreground">
+              No parts added. Click "Add Part" to add parts from inventory.
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">Services</CardTitle>
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm" 
+              onClick={addService}
+            >
+              <Plus className="h-4 w-4 mr-1" /> Add Service
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {services.length > 0 ? (
+            <div className="space-y-4">
+              {services.map((service, index) => (
+                <div key={index} className="flex flex-col space-y-2 p-3 border rounded-md">
+                  <div className="flex items-center justify-between">
+                    <Input
+                      placeholder="Service name"
+                      value={service.name}
+                      onChange={(e) => updateService(index, 'name', e.target.value)}
+                      className="border-0 p-0 text-base font-medium h-7 focus-visible:ring-0"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeService(index)}
+                    >
+                      <Trash className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <Label htmlFor={`service-hours-${index}`}>Hours</Label>
+                      <Input
+                        id={`service-hours-${index}`}
+                        type="number"
+                        min="0.5"
+                        step="0.5"
+                        value={service.hours}
+                        onChange={(e) => updateService(index, 'hours', parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor={`service-rate-${index}`}>Rate/Hour</Label>
+                      <Input
+                        id={`service-rate-${index}`}
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={service.rate}
+                        onChange={(e) => updateService(index, 'rate', parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div>
+                      <Label>Total</Label>
+                      <div className="h-10 px-3 py-2 rounded-md border bg-muted flex items-center">
+                        {formatCurrency(service.total)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-4 text-muted-foreground">
+              No services added. Click "Add Service" to add a service.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      
       <div className="space-y-2">
         <Label htmlFor="notes">Additional Notes (Optional)</Label>
-        <Input
+        <Textarea
           id="notes"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -430,17 +571,17 @@ export function BillingForm({ jobCardId: initialJobCardId, onSuccess }: BillingF
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Bill Summary</CardTitle>
+          <CardTitle className="text-lg">Invoice Summary</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
             <div className="flex justify-between">
               <span>Subtotal:</span>
-              <span className="font-medium">₹{subtotal.toLocaleString('en-IN')}</span>
+              <span className="font-medium">{formatCurrency(subtotal)}</span>
             </div>
             <div className="flex justify-between">
               <span>GST (18%):</span>
-              <span className="font-medium">₹{taxAmount.toLocaleString('en-IN')}</span>
+              <span className="font-medium">{formatCurrency(taxAmount)}</span>
             </div>
             <div className="flex justify-between text-lg font-bold">
               <span>Total Amount:</span>
@@ -451,17 +592,23 @@ export function BillingForm({ jobCardId: initialJobCardId, onSuccess }: BillingF
             </div>
           </div>
         </CardContent>
+        <CardFooter className="flex justify-end">
+          <Button 
+            type="submit" 
+            className="gap-2" 
+            disabled={loading || (selectedItems.length === 0 && services.length === 0) || !dueDate}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Creating...</span>
+              </>
+            ) : (
+              <>Generate Invoice</>
+            )}
+          </Button>
+        </CardFooter>
       </Card>
-
-      <div className="flex justify-end">
-        <Button 
-          type="submit" 
-          className="gap-2" 
-          disabled={loading || (selectedItems.length === 0 && services.length === 0)}
-        >
-          {loading ? 'Creating Invoice...' : 'Generate Invoice'}
-        </Button>
-      </div>
     </form>
   );
 }

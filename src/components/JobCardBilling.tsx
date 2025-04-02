@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { CalendarIcon, FilePlus, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -12,8 +11,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { toast } from '@/lib/toast';
-import { getJobCardDetails, InvoiceItem, InvoiceService, createInvoice } from '@/services/billingService';
+import { getJobCardDetails, createInvoice, InvoiceItem, InvoiceService } from '@/services/billingService';
 import { useNavigate } from 'react-router-dom';
+import { Checkbox } from '@/components/ui/checkbox';
 
 type JobCardBillingProps = {
   jobCardId: string;
@@ -103,7 +103,7 @@ export function JobCardBilling({ jobCardId, onCancel, onSuccess }: JobCardBillin
         tax_amount: taxAmount,
         grand_total: grandTotal,
         due_date: dueDate ? dueDate.toISOString() : undefined,
-        status: 'unpaid' as 'paid' | 'unpaid' | 'overdue' | 'cancelled',
+        status: 'unpaid' as const,
         notes,
         parts: selectedParts,
         services: selectedServices
@@ -143,6 +143,13 @@ export function JobCardBilling({ jobCardId, onCancel, onSuccess }: JobCardBillin
       </div>
     );
   }
+  
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', { 
+      style: 'currency', 
+      currency: 'INR' 
+    }).format(amount);
+  };
   
   return (
     <div className="space-y-6">
@@ -214,17 +221,15 @@ export function JobCardBilling({ jobCardId, onCancel, onSuccess }: JobCardBillin
                 {jobCardData.parts.map((part: InvoiceItem) => (
                   <TableRow key={part.id}>
                     <TableCell>
-                      <input 
-                        type="checkbox" 
+                      <Checkbox
                         checked={selectedParts.some(p => p.id === part.id)}
-                        onChange={(e) => handleTogglePart(part, e.target.checked)}
-                        className="h-4 w-4"
+                        onCheckedChange={(checked) => handleTogglePart(part, checked === true)}
                       />
                     </TableCell>
                     <TableCell>{part.name}</TableCell>
                     <TableCell>{part.quantity}</TableCell>
-                    <TableCell>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(part.price)}</TableCell>
-                    <TableCell>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(part.total)}</TableCell>
+                    <TableCell>{formatCurrency(part.price)}</TableCell>
+                    <TableCell>{formatCurrency(part.total)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -257,17 +262,15 @@ export function JobCardBilling({ jobCardId, onCancel, onSuccess }: JobCardBillin
                 {jobCardData.services.map((service: InvoiceService) => (
                   <TableRow key={service.id}>
                     <TableCell>
-                      <input 
-                        type="checkbox" 
+                      <Checkbox
                         checked={selectedServices.some(s => s.id === service.id)}
-                        onChange={(e) => handleToggleService(service, e.target.checked)}
-                        className="h-4 w-4"
+                        onCheckedChange={(checked) => handleToggleService(service, checked === true)}
                       />
                     </TableCell>
                     <TableCell>{service.name}</TableCell>
                     <TableCell>{service.hours}</TableCell>
-                    <TableCell>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(service.rate)}</TableCell>
-                    <TableCell>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(service.total)}</TableCell>
+                    <TableCell>{formatCurrency(service.rate)}</TableCell>
+                    <TableCell>{formatCurrency(service.total)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -334,15 +337,15 @@ export function JobCardBilling({ jobCardId, onCancel, onSuccess }: JobCardBillin
           <div className="space-y-2">
             <div className="flex justify-between">
               <span>Subtotal</span>
-              <span>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(subTotal)}</span>
+              <span>{formatCurrency(subTotal)}</span>
             </div>
             <div className="flex justify-between">
               <span>Tax (18% GST)</span>
-              <span>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(taxAmount)}</span>
+              <span>{formatCurrency(taxAmount)}</span>
             </div>
             <div className="flex justify-between font-bold">
               <span>Total</span>
-              <span>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(grandTotal)}</span>
+              <span>{formatCurrency(grandTotal)}</span>
             </div>
           </div>
         </CardContent>
